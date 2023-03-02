@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::{App, LogMessage};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -22,9 +22,8 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .split(f.size());
     draw_tab_bar(f, app, chunks[0]);
     match app.tab_index {
-        0 => draw_first_tab(f, app, chunks[1]),
-        1 => draw_second_tab(f, app, chunks[1]),
-        2 => draw_third_tab(f, app, chunks[1]),
+        0 => draw_console_tab(f, app, chunks[1]),
+        1 => draw_debug_tab(f, app, chunks[1]),
         _ => {}
     };
     draw_text_area(f, app, chunks[2]);
@@ -32,7 +31,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 }
 
 fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let titles = vec!["Console", "Overview", "Debug"]
+    let titles = vec!["Console", "Debug"]
         .iter()
         .map(|t| Spans::from(Span::styled(*t, Style::default().fg(Color::Green))))
         .collect();
@@ -48,7 +47,16 @@ fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     f.render_widget(tabs, chunk);
 }
 
-fn draw_first_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+fn draw_console_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
+        .split(chunk);
+    draw_console(f, app, chunks[0]);
+    draw_overview(f, app, chunks[1]);
+}
+
+fn draw_console<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
     let height = if chunk.height < 2 {
         2
     } else {
@@ -61,7 +69,7 @@ fn draw_first_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     };
     let spans: Vec<Spans> = app.console_log[range_start..]
         .iter()
-        .map(|l| Spans::from(l.as_str()))
+        .map(|message| span_from_log_message(message))
         .collect();
     let block = Block::default().borders(Borders::ALL).title(Span::styled(
         "Console",
@@ -73,7 +81,7 @@ fn draw_first_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     f.render_widget(paragraph, chunk);
 }
 
-fn draw_second_tab<B: Backend>(f: &mut Frame<B>, _app: &mut App, chunk: Rect) {
+fn draw_overview<B: Backend>(f: &mut Frame<B>, _app: &App, chunk: Rect) {
     let spans = multiline_to_spans("Overview text...");
     let block = Block::default().borders(Borders::ALL).title(Span::styled(
         "Overview",
@@ -85,7 +93,33 @@ fn draw_second_tab<B: Backend>(f: &mut Frame<B>, _app: &mut App, chunk: Rect) {
     f.render_widget(paragraph, chunk);
 }
 
-fn draw_third_tab<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
+fn span_from_log_message(message: &LogMessage) -> Spans {
+    match message {
+        LogMessage::Status(text) => Spans::from(vec![
+            Span::styled("!> ", Style::default().fg(Color::Magenta)),
+            Span::styled(
+                text,
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        LogMessage::Command(text) => Spans::from(vec![
+            Span::styled("$ ", Style::default().fg(Color::Magenta)),
+            Span::styled(
+                text,
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::ITALIC),
+            ),
+        ]),
+        LogMessage::Response(text) => {
+            Spans::from(vec![Span::styled(text, Style::default().fg(Color::White))])
+        }
+    }
+}
+
+fn draw_debug_tab<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
 where
     B: Backend,
 {
@@ -151,10 +185,7 @@ fn draw_text_area<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
 }
 
 fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let text = Span::styled(
-        app.feedback_text.clone(),
-        Style::default().fg(Color::DarkGray),
-    );
+    let text = Span::styled(app.status_feedback(), Style::default().fg(Color::DarkGray));
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(Style::default().fg(Color::Magenta));

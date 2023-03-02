@@ -1,22 +1,13 @@
 /// Main entry point
 mod app;
 mod ui;
-use app::App;
+use app::run_app;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{
-    error::Error,
-    io,
-    time::{Duration, Instant},
-};
-use tui::{
-    backend::{Backend, CrosstermBackend},
-    Terminal,
-};
-
-const TICK_RATE_MS: u64 = 25;
+use std::{error::Error, io};
+use tui::{backend::CrosstermBackend, Terminal};
 
 pub fn main() -> Result<(), Box<dyn Error>> {
     // setup terminal
@@ -25,12 +16,8 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     crossterm::execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-
-    // create app and run it
-    let tick_rate = Duration::from_millis(TICK_RATE_MS);
-    let app = App::new("Dev Board");
-    let res = run_app(&mut terminal, app, tick_rate);
-
+    // create and run the app
+    let res = run_app(&mut terminal);
     // restore terminal
     disable_raw_mode()?;
     crossterm::execute!(
@@ -39,32 +26,9 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
-
+    // Send errors to stderr
     if let Err(err) = res {
-        println!("{:?}", err)
+        eprintln!("{:?}", err)
     }
-
     Ok(())
-}
-
-fn run_app<B: Backend>(
-    terminal: &mut Terminal<B>,
-    mut app: App,
-    tick_rate: Duration,
-) -> io::Result<()> {
-    let mut last_tick = Instant::now();
-    loop {
-        terminal.draw(|f| ui::draw(f, &mut app))?;
-        let timeout = tick_rate
-            .checked_sub(last_tick.elapsed())
-            .unwrap_or_else(|| Duration::from_secs(0));
-        app.handle_events(timeout)?;
-        if last_tick.elapsed() >= tick_rate {
-            app.on_tick();
-            last_tick = Instant::now();
-        }
-        if app.should_quit {
-            return Ok(());
-        }
-    }
 }

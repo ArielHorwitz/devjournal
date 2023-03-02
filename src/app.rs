@@ -1,7 +1,22 @@
 /// App state and logic
+use crate::ui;
 use crossterm::event::{Event, KeyCode, KeyEvent};
-use std::{io, time::Duration};
+use std::{
+    io,
+    time::{Duration, Instant},
+};
+use tui::{backend::Backend, Terminal};
 use tui_textarea::{CursorMove, TextArea};
+
+const TICK_RATE_MS: u64 = 25;
+
+pub enum LogMessage {
+    Status(String),
+    Command(String),
+    Response(String),
+}
+
+const LAST_TAB_INDEX: usize = 1;
 
 pub struct App<'a> {
     pub title: &'a str,
@@ -10,8 +25,7 @@ pub struct App<'a> {
     pub tick: i32,
     pub textarea: TextArea<'a>,
     pub focus_text: bool,
-    pub console_log: Vec<String>,
-    pub feedback_text: String,
+    pub console_log: Vec<LogMessage>,
 }
 
 impl<'a> App<'a> {
@@ -23,9 +37,17 @@ impl<'a> App<'a> {
             tick: 0,
             textarea: TextArea::default(),
             focus_text: false,
-            console_log: vec![String::from("Welcome to DevBoard.")],
-            feedback_text: String::from("Welcome to DevBoard."),
+            console_log: vec![],
         }
+    }
+
+    pub fn status_feedback(&self) -> String {
+        for log_message in self.console_log.iter().rev() {
+            if let LogMessage::Status(text) = log_message {
+                return text.clone();
+            }
+        }
+        String::from("Welcome to DevBoard.")
     }
 
     pub fn on_tick(&mut self) {
@@ -52,14 +74,19 @@ impl<'a> App<'a> {
             }
             KeyCode::Enter => {
                 self.focus_text = false;
-                self.console_log.push(self.textarea.lines()[0].clone());
+                self.console_log
+                    .push(LogMessage::Command(self.textarea.lines()[0].clone()));
                 self.textarea.move_cursor(CursorMove::Top);
                 self.textarea.move_cursor(CursorMove::Head);
                 while self.textarea.lines().len() > 1 {
                     self.textarea.delete_line_by_end();
                 }
                 self.textarea.delete_line_by_end();
+                let response = LogMessage::Response("No response.".to_string());
+                self.console_log.push(response);
             }
+            KeyCode::Tab => self.increment_tab(),
+            KeyCode::BackTab => self.decrement_tab(),
             _ => {
                 self.textarea.input(key_event);
             }
@@ -75,9 +102,11 @@ impl<'a> App<'a> {
             }
             KeyCode::Char(c) => match c {
                 'q' => self.should_quit = true,
-                _ => self.feedback_text = format!(">> Input keycode: {:?}", codepoint),
+                _ => self
+                    .console_log
+                    .push(LogMessage::Status(format!("Input: {c}"))),
             },
-            keycode => self.feedback_text = format!(">> Input keycode: {:?}", keycode),
+            _ => (),
         }
     }
 
@@ -85,15 +114,35 @@ impl<'a> App<'a> {
         if self.tab_index > 0 {
             self.tab_index -= 1;
         } else {
-            self.tab_index = 2;
+            self.tab_index = LAST_TAB_INDEX;
         }
     }
 
     fn increment_tab(&mut self) {
-        if self.tab_index < 2 {
-            self.tab_index += 1;
+        if self.tab_index < LAST_TAB_INDEX {
+            self.tab_index += LAST_TAB_INDEX;
         } else {
             self.tab_index = 0;
+        }
+    }
+}
+
+pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
+    let tick_rate = Duration::from_millis(TICK_RATE_MS);
+    let mut app = App::new("Dev Board");
+    let mut last_tick = Instant::now();
+    loop {
+        terminal.draw(|f| ui::draw(f, &mut app))?;
+        let timeout = tick_rate
+            .checked_sub(last_tick.elapsed())
+            .unwrap_or_else(|| Duration::from_secs(0));
+        app.handle_events(timeout)?;
+        if last_tick.elapsed() >= tick_rate {
+            app.on_tick();
+            last_tick = Instant::now();
+        }
+        if app.should_quit {
+            return Ok(());
         }
     }
 }
