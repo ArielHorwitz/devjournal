@@ -81,8 +81,8 @@ fn draw_console<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
     f.render_widget(paragraph, chunk);
 }
 
-fn draw_overview<B: Backend>(f: &mut Frame<B>, _app: &App, chunk: Rect) {
-    let spans = multiline_to_spans("Overview text...");
+fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
+    let spans = multiline_to_spans(&app.overview_text);
     let block = Block::default().borders(Borders::ALL).title(Span::styled(
         "Overview",
         Style::default()

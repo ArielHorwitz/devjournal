@@ -1,8 +1,11 @@
 /// App state and logic
 use crate::ui;
 use crossterm::event::{Event, KeyCode, KeyEvent};
+use std::fs;
+use std::io::ErrorKind;
 use std::{
-    io,
+    fs::File,
+    io::{self, Read},
     time::{Duration, Instant},
 };
 use tui::{backend::Backend, Terminal};
@@ -26,6 +29,7 @@ pub struct App<'a> {
     pub textarea: TextArea<'a>,
     pub focus_text: bool,
     pub console_log: Vec<LogMessage>,
+    pub overview_text: String,
 }
 
 impl<'a> App<'a> {
@@ -38,6 +42,7 @@ impl<'a> App<'a> {
             textarea: TextArea::default(),
             focus_text: false,
             console_log: vec![],
+            overview_text: String::from("No document read."),
         }
     }
 
@@ -74,15 +79,19 @@ impl<'a> App<'a> {
             }
             KeyCode::Enter => {
                 self.focus_text = false;
-                self.console_log
-                    .push(LogMessage::Command(self.textarea.lines()[0].clone()));
+                let command = self.textarea.lines()[0].clone();
+                self.console_log.push(LogMessage::Command(command.clone()));
                 self.textarea.move_cursor(CursorMove::Top);
                 self.textarea.move_cursor(CursorMove::Head);
                 while self.textarea.lines().len() > 1 {
                     self.textarea.delete_line_by_end();
                 }
                 self.textarea.delete_line_by_end();
-                let response = LogMessage::Response("No response.".to_string());
+                self.overview_text = match read_file(&command) {
+                    Err(e) => format!("{e}"),
+                    Ok(e) => e,
+                };
+                let response = LogMessage::Response("See overview.".to_string());
                 self.console_log.push(response);
             }
             KeyCode::Tab => self.increment_tab(),
@@ -145,4 +154,21 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
             return Ok(());
         }
     }
+}
+
+fn read_file(file_name: &str) -> Result<String, io::Error> {
+    let paths = fs::read_dir("data/")?;
+    for dir_result in paths {
+        let dir_result = dir_result?;
+        if file_name == dir_result.file_name() {
+            let mut encoded: Vec<u8> = Vec::new();
+            let mut file = File::open(dir_result.path())?;
+            file.read_to_end(&mut encoded)?;
+            match String::from_utf8(encoded) {
+                Err(e) => return Err(io::Error::new(ErrorKind::InvalidData, e)),
+                Ok(s) => return Ok(s),
+            };
+        }
+    }
+    Err(io::Error::new(ErrorKind::NotFound, "No files found"))
 }
