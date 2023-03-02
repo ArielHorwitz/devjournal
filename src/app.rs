@@ -1,16 +1,7 @@
 /// App state and logic
 use crossterm::event::{Event, KeyCode, KeyEvent};
-use std::{collections::HashMap, io, process::Command, time::Duration};
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use std::{io, time::Duration};
 use tui_textarea::{CursorMove, TextArea};
-
-#[derive(Eq, PartialEq, Hash, EnumIter)]
-pub enum GitOutput {
-    Status,
-    Files,
-    Log,
-}
 
 pub struct App<'a> {
     pub title: &'a str,
@@ -19,17 +10,12 @@ pub struct App<'a> {
     pub tick: i32,
     pub textarea: TextArea<'a>,
     pub focus_text: bool,
-    pub git_text: HashMap<GitOutput, String>,
-    pub console_text: String,
+    pub console_log: Vec<String>,
     pub feedback_text: String,
 }
 
 impl<'a> App<'a> {
     pub fn new(title: &'a str) -> App<'a> {
-        let mut git_text = HashMap::new();
-        for go in GitOutput::iter() {
-            git_text.insert(go, "".to_string());
-        }
         App {
             title,
             should_quit: false,
@@ -37,9 +23,8 @@ impl<'a> App<'a> {
             tick: 0,
             textarea: TextArea::default(),
             focus_text: false,
-            git_text,
-            console_text: String::from(""),
-            feedback_text: String::from("Welcome to mingit."),
+            console_log: vec![String::from("Welcome to DevBoard.")],
+            feedback_text: String::from("Welcome to DevBoard."),
         }
     }
 
@@ -67,7 +52,7 @@ impl<'a> App<'a> {
             }
             KeyCode::Enter => {
                 self.focus_text = false;
-                self.console_text = self.run_git_command(&self.textarea.lines()[0]);
+                self.console_log.push(self.textarea.lines()[0].clone());
                 self.textarea.move_cursor(CursorMove::Top);
                 self.textarea.move_cursor(CursorMove::Head);
                 while self.textarea.lines().len() > 1 {
@@ -92,28 +77,8 @@ impl<'a> App<'a> {
                 'q' => self.should_quit = true,
                 _ => self.feedback_text = format!(">> Input keycode: {:?}", codepoint),
             },
-            KeyCode::F(5) => {
-                self.refresh_git();
-            }
             keycode => self.feedback_text = format!(">> Input keycode: {:?}", keycode),
         }
-    }
-
-    fn refresh_git(&mut self) {
-        self.git_text
-            .insert(GitOutput::Status, self.run_git_command("status"));
-        self.git_text
-            .insert(GitOutput::Files, self.run_git_command("ls-files"));
-    }
-
-    fn run_git_command(&self, command: &str) -> String {
-        let args: Vec<&str> = command.split(" ").collect();
-        let output = Command::new("git").args(args).output().unwrap();
-        let mut text_response = String::from_utf8(output.stdout).unwrap();
-        if text_response.trim().len() == 0 {
-            text_response = String::from_utf8(output.stderr).unwrap();
-        }
-        text_response
     }
 
     fn decrement_tab(&mut self) {

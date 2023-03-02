@@ -1,4 +1,4 @@
-use crate::app::{App, GitOutput};
+use crate::app::App;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -49,7 +49,20 @@ fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
 }
 
 fn draw_first_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let spans = multiline_to_spans(&app.console_text);
+    let height = if chunk.height < 2 {
+        2
+    } else {
+        (chunk.height - 2) as usize
+    };
+    let range_start = if app.console_log.len() > height as usize {
+        app.console_log.len() - height as usize
+    } else {
+        0
+    };
+    let spans: Vec<Spans> = app.console_log[range_start..]
+        .iter()
+        .map(|l| Spans::from(l.as_str()))
+        .collect();
     let block = Block::default().borders(Borders::ALL).title(Span::styled(
         "Console",
         Style::default()
@@ -60,13 +73,10 @@ fn draw_first_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     f.render_widget(paragraph, chunk);
 }
 
-fn draw_second_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let mut spans = multiline_to_spans(app.git_text.get(&GitOutput::Files).unwrap());
-    spans.append(&mut multiline_to_spans(
-        app.git_text.get(&GitOutput::Status).unwrap(),
-    ));
+fn draw_second_tab<B: Backend>(f: &mut Frame<B>, _app: &mut App, chunk: Rect) {
+    let spans = multiline_to_spans("Overview text...");
     let block = Block::default().borders(Borders::ALL).title(Span::styled(
-        "Git files and status",
+        "Overview",
         Style::default()
             .fg(Color::Yellow)
             .add_modifier(Modifier::BOLD),

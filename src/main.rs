@@ -28,7 +28,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // create app and run it
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
-    let app = App::new("mingit");
+    let app = App::new("Dev Board");
     let res = run_app(&mut terminal, app, tick_rate);
 
     // restore terminal
