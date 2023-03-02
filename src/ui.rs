@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::{App, GitOutput};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -12,59 +12,66 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let chunks = Layout::default()
         .constraints(
             [
-                Constraint::Length(3),
-                Constraint::Min(0),
-                Constraint::Length(3),
-                Constraint::Length(2),
+                Constraint::Length(3), // Tab bar
+                Constraint::Min(0),    // Tab content
+                Constraint::Length(1), // Console
+                Constraint::Length(2), // Status bar
             ]
             .as_ref(),
         )
         .split(f.size());
-    let titles = vec!["Tab0", "Tab1", "Tab2"]
-        .iter()
-        .map(|t| Spans::from(Span::styled(*t, Style::default().fg(Color::Green))))
-        .collect();
-    let tabs = Tabs::new(titles)
-        .block(Block::default().borders(Borders::ALL).title(app.title))
-        .highlight_style(Style::default().fg(Color::Yellow))
-        .select(app.tab_index);
-    f.render_widget(tabs, chunks[0]);
+    draw_tab_bar(f, app, chunks[0]);
     match app.tab_index {
         0 => draw_first_tab(f, app, chunks[1]),
         1 => draw_second_tab(f, app, chunks[1]),
         2 => draw_third_tab(f, app, chunks[1]),
         _ => {}
     };
-    let style = match app.focus_text {
-        true => Style::default().bg(Color::Blue).fg(Color::LightRed),
-        false => Style::default().bg(Color::Black).fg(Color::White),
-    };
-    app.textarea.set_cursor_style(style);
-    f.render_widget(app.textarea.widget(), chunks[2]);
+    draw_text_area(f, app, chunks[2]);
     draw_feedback_text(f, app, chunks[3]);
 }
 
+fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+    let titles = vec!["Console", "Overview", "Debug"]
+        .iter()
+        .map(|t| Spans::from(Span::styled(*t, Style::default().fg(Color::Green))))
+        .collect();
+    let tabs = Tabs::new(titles)
+        .block(
+            Block::default()
+                .title(app.title)
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        )
+        .highlight_style(Style::default().fg(Color::LightMagenta))
+        .select(app.tab_index);
+    f.render_widget(tabs, chunk);
+}
+
 fn draw_first_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let text = vec![Spans::from(app.full_text.clone())];
+    let spans = multiline_to_spans(&app.console_text);
     let block = Block::default().borders(Borders::ALL).title(Span::styled(
-        "Text",
+        "Console",
         Style::default()
-            .fg(Color::Magenta)
+            .fg(Color::Yellow)
             .add_modifier(Modifier::BOLD),
     ));
-    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
+    let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
 
-fn draw_second_tab<B: Backend>(f: &mut Frame<B>, _app: &mut App, chunk: Rect) {
-    let text = vec![Spans::from("Eggs and spam.")];
-    let block = Block::default().borders(Borders::ALL).title(Span::styled(
-        "More text",
-        Style::default()
-            .fg(Color::Green)
-            .add_modifier(Modifier::ITALIC),
+fn draw_second_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+    let mut spans = multiline_to_spans(app.git_text.get(&GitOutput::Files).unwrap());
+    spans.append(&mut multiline_to_spans(
+        app.git_text.get(&GitOutput::Status).unwrap(),
     ));
-    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
+    let block = Block::default().borders(Borders::ALL).title(Span::styled(
+        "Git files and status",
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    ));
+    let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
 
@@ -74,7 +81,7 @@ where
 {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
+        .constraints([Constraint::Min(0)])
         .split(area);
     let colors = [
         // Color::Reset,
@@ -119,14 +126,32 @@ where
     f.render_widget(table, chunks[0]);
 }
 
+fn draw_text_area<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+    let style = match app.focus_text {
+        true => Style::default().bg(Color::Black).fg(Color::Green),
+        false => Style::default().bg(Color::Black).fg(Color::DarkGray),
+    };
+    app.textarea.set_style(style);
+    let cursor_style = match app.focus_text {
+        true => Style::default().bg(Color::LightMagenta).fg(Color::Black),
+        false => Style::default().bg(Color::Black).fg(Color::DarkGray),
+    };
+    app.textarea.set_cursor_style(cursor_style);
+    f.render_widget(app.textarea.widget(), chunk)
+}
+
 fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let text = vec![Spans::from(app.feedback_text.clone())];
+    let text = Span::styled(
+        app.feedback_text.clone(),
+        Style::default().fg(Color::DarkGray),
+    );
     let block = Block::default()
-        .borders(Borders::TOP | Borders::LEFT)
-        .title(Span::styled(
-            "Status feedback",
-            Style::default().fg(Color::Gray),
-        ));
+        .borders(Borders::TOP)
+        .border_style(Style::default().fg(Color::Magenta));
     let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
+}
+
+fn multiline_to_spans(text: &str) -> Vec<Spans> {
+    text.split("\n").map(|l| Spans::from(l.trim())).collect()
 }
