@@ -157,12 +157,13 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
 }
 
 fn read_file(file_name: &str) -> Result<String, io::Error> {
-    let paths = fs::read_dir("data/")?;
-    for dir_result in paths {
+    let dir = fs::read_dir("data/")?;
+    for dir_result in dir {
         let dir_result = dir_result?;
+        let path = dir_result.path();
         if file_name == dir_result.file_name() {
             let mut encoded: Vec<u8> = Vec::new();
-            let mut file = File::open(dir_result.path())?;
+            let mut file = File::open(path)?;
             file.read_to_end(&mut encoded)?;
             match String::from_utf8(encoded) {
                 Err(e) => return Err(io::Error::new(ErrorKind::InvalidData, e)),
@@ -170,5 +171,15 @@ fn read_file(file_name: &str) -> Result<String, io::Error> {
             };
         }
     }
-    Err(io::Error::new(ErrorKind::NotFound, "No files found"))
+    let mut entries = fs::read_dir("data/")?
+        .map(|res| res.map(|e| e.path().to_str().unwrap().to_string()))
+        .collect::<Result<Vec<_>, io::Error>>()?;
+    entries.sort();
+    Err(io::Error::new(
+        ErrorKind::NotFound,
+        format!(
+            "No files found.\n\nAvailable files:\n  {}",
+            entries.join("\n  ")
+        ),
+    ))
 }
