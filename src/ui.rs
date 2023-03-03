@@ -213,14 +213,14 @@ where
 }
 
 fn draw_text_area<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let style = match app.focus_text {
-        true => Style::default().bg(Color::Black).fg(Color::Green),
-        false => Style::default().bg(Color::Black).fg(Color::DarkGray),
+    let style = match app.prompt_handler {
+        Some(_) => Style::default().bg(Color::Black).fg(Color::Green),
+        None => Style::default().bg(Color::Black).fg(Color::DarkGray),
     };
     app.textarea.set_style(style);
-    let cursor_style = match app.focus_text {
-        true => Style::default().bg(Color::LightMagenta).fg(Color::Black),
-        false => Style::default().bg(Color::Black).fg(Color::DarkGray),
+    let cursor_style = match app.prompt_handler {
+        Some(_) => Style::default().bg(Color::LightMagenta).fg(Color::Black),
+        None => Style::default().bg(Color::Black).fg(Color::DarkGray),
     };
     app.textarea.set_cursor_style(cursor_style);
     f.render_widget(app.textarea.widget(), chunk)
