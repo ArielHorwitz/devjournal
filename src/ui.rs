@@ -1,8 +1,9 @@
 use crate::app::{App, LogMessage};
+use crate::styles;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, Tabs, Wrap},
     Frame,
@@ -33,16 +34,16 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let titles = vec!["Console", "Debug"]
         .iter()
-        .map(|t| Spans::from(Span::styled(*t, Style::default().fg(Color::DarkGray))))
+        .map(|t| Spans::from(Span::styled(*t, styles::tab())))
         .collect();
     let tabs = Tabs::new(titles)
         .block(
             Block::default()
                 .title(app.title)
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(styles::border()),
         )
-        .highlight_style(Style::default().fg(Color::LightMagenta))
+        .highlight_style(styles::active_tab())
         .select(app.tab_index);
     f.render_widget(tabs, chunk);
 }
@@ -76,14 +77,9 @@ fn draw_console<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
         .map(|message| span_from_log_message(message))
         .collect();
     let block = Block::default()
-        .title(Span::styled(
-            "Console",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        ))
+        .title(Span::styled("Console", styles::title()))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(styles::border());
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
@@ -95,14 +91,9 @@ fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
         .map(|t| Spans::from(format!("- {}", t.desc)))
         .collect();
     let block = Block::default()
-        .title(Span::styled(
-            "Tasks",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        ))
+        .title(Span::styled("Tasks", styles::title()))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(styles::border());
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
@@ -110,14 +101,9 @@ fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
 fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
     let spans = multiline_to_spans(&app.overview_text);
     let block = Block::default()
-        .title(Span::styled(
-            "Overview",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        ))
+        .title(Span::styled("Overview", styles::title()))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(styles::border());
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
@@ -125,26 +111,14 @@ fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
 fn span_from_log_message(message: &LogMessage) -> Spans {
     match message {
         LogMessage::Status(text) => Spans::from(vec![
-            Span::styled("!> ", Style::default().fg(Color::Magenta)),
-            Span::styled(
-                text,
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
+            Span::styled("!> ", styles::highlight()),
+            Span::styled(text, styles::text()),
         ]),
         LogMessage::Command(text) => Spans::from(vec![
-            Span::styled("$ ", Style::default().fg(Color::Magenta)),
-            Span::styled(
-                text,
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::ITALIC),
-            ),
+            Span::styled("$ ", styles::highlight()),
+            Span::styled(text, styles::text()),
         ]),
-        LogMessage::Response(text) => {
-            Spans::from(vec![Span::styled(text, Style::default().fg(Color::White))])
-        }
+        LogMessage::Response(text) => Spans::from(vec![Span::styled(text, styles::text())]),
     }
 }
 
@@ -179,11 +153,11 @@ where
         .iter()
         .map(|c| {
             let cells = vec![
+                Cell::from(Span::styled(format!("{:?}: ", c), styles::text())),
                 Cell::from(Span::styled(
-                    format!("{:?}: ", c),
-                    Style::default().fg(Color::White),
+                    "Foreground",
+                    Style::default().bg(Color::Black).fg(*c),
                 )),
-                Cell::from(Span::styled("Foreground", Style::default().fg(*c))),
                 Cell::from(Span::styled(
                     "Background",
                     Style::default().bg(*c).fg(Color::Black),
@@ -195,14 +169,9 @@ where
     let table = Table::new(items)
         .block(
             Block::default()
-                .title(Span::styled(
-                    "Colors",
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
-                ))
+                .title(Span::styled("Colors", styles::title()))
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(styles::border()),
         )
         .widths(&[
             Constraint::Ratio(1, 3),
@@ -214,23 +183,23 @@ where
 
 fn draw_text_area<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let style = match app.prompt_handler {
-        Some(_) => Style::default().bg(Color::Black).fg(Color::Green),
-        None => Style::default().bg(Color::Black).fg(Color::DarkGray),
+        Some(_) => styles::prompt(),
+        None => styles::dim(),
     };
     app.textarea.set_style(style);
     let cursor_style = match app.prompt_handler {
-        Some(_) => Style::default().bg(Color::LightMagenta).fg(Color::Black),
-        None => Style::default().bg(Color::Black).fg(Color::DarkGray),
+        Some(_) => Style::default().bg(Color::Magenta),
+        None => Style::default().bg(Color::Black),
     };
     app.textarea.set_cursor_style(cursor_style);
     f.render_widget(app.textarea.widget(), chunk)
 }
 
 fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let text = Span::styled(app.status_feedback(), Style::default().fg(Color::DarkGray));
+    let text = Span::styled(app.status_feedback(), styles::dim());
     let block = Block::default()
         .borders(Borders::TOP)
-        .border_style(Style::default().fg(Color::Magenta));
+        .border_style(styles::border());
     let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
