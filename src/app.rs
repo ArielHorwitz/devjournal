@@ -1,8 +1,9 @@
 /// App state and logic
 use crate::ui;
 use crossterm::event::{Event, KeyCode};
+use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Write};
 use std::{
     fs::File,
     io::{self, Read},
@@ -19,6 +20,7 @@ pub enum LogMessage {
     Response(String),
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Task {
     pub desc: String,
     pub created_at: String,
@@ -132,7 +134,19 @@ impl<'a> App<'a> {
         match command {
             "add" => self.command_add_task(args),
             "rm" => self.command_remove_task(args),
-            "load" => self.command_load(args),
+            "save" => {
+                if let Err(e) = self.command_save(args) {
+                    self.console_log.push(LogMessage::Response(e.to_string()));
+                }
+            }
+            "load" => {
+                if let Err(e) = self.command_load(args) {
+                    self.console_log.push(LogMessage::Response(e.to_string()));
+                }
+            }
+            "clear" => {
+                self.task_list = Vec::new();
+            }
             _ => (),
         }
     }
@@ -141,7 +155,7 @@ impl<'a> App<'a> {
         if args.len() == 0 {
             return;
         }
-        self.task_list.push(Task::new(args[0]));
+        self.task_list.push(Task::new(&args.join(" ")));
     }
 
     fn command_remove_task(&mut self, args: Vec<&str>) {
@@ -155,20 +169,35 @@ impl<'a> App<'a> {
         }
     }
 
-    fn command_load(&mut self, args: Vec<&str>) {
+    fn command_save(&mut self, args: Vec<&str>) -> Result<(), io::Error> {
         if args.len() == 0 {
-            match get_files() {
-                Ok(v) => self.overview_text = format!("Available files:\n{}", v.join("\n")),
-                Err(e) => self.overview_text = format!("Error reading files:\n{e}"),
-            }
-            return;
+            return Err(io::Error::new(ErrorKind::NotFound, "Missing file name"));
         }
-        self.overview_text = match read_file(args[0]) {
-            Err(e) => format!("Error reading file:\n{e}"),
-            Ok(e) => e,
-        };
-        let response = LogMessage::Response("See overview.".to_string());
-        self.console_log.push(response);
+        match bincode::serialize(&self.task_list) {
+            Ok(encoded) => {
+                let mut file = File::create(format!("data/{}", args[0]))?;
+                file.write_all(&encoded)?;
+                Ok(())
+            }
+            Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
+        }
+    }
+
+    fn command_load(&mut self, args: Vec<&str>) -> Result<(), io::Error> {
+        if args.len() == 0 {
+            self.overview_text = format!("Available files:\n{}", get_file_list()?.join("\n"));
+            return Ok(());
+        }
+        let mut file = File::open(format!("data/{}", args[0]))?;
+        let mut encoded: Vec<u8> = Vec::new();
+        file.read_to_end(&mut encoded)?;
+        match bincode::deserialize(encoded.as_slice()) {
+            Ok(decoded) => {
+                self.task_list = decoded;
+                return Ok(());
+            }
+            Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
+        }
     }
 
     fn decrement_tab(&mut self) {
@@ -208,25 +237,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
     }
 }
 
-fn read_file(file_name: &str) -> Result<String, io::Error> {
-    let dir = fs::read_dir("data/")?;
-    for dir_result in dir {
-        let dir_result = dir_result?;
-        let path = dir_result.path();
-        if file_name == dir_result.file_name() {
-            let mut encoded: Vec<u8> = Vec::new();
-            let mut file = File::open(path)?;
-            file.read_to_end(&mut encoded)?;
-            match String::from_utf8(encoded) {
-                Err(e) => return Err(io::Error::new(ErrorKind::InvalidData, e)),
-                Ok(s) => return Ok(s),
-            };
-        }
-    }
-    Err(io::Error::new(ErrorKind::NotFound, "No files found."))
-}
-
-fn get_files() -> Result<Vec<String>, io::Error> {
+fn get_file_list() -> Result<Vec<String>, io::Error> {
     let mut entries = fs::read_dir("data/")?
         .map(|res| res.map(|e| e.path().to_str().unwrap().to_string()))
         .collect::<Result<Vec<_>, io::Error>>()?;
