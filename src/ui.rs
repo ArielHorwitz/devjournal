@@ -15,7 +15,6 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             [
                 Constraint::Length(3), // Tab bar
                 Constraint::Min(0),    // Tab content
-                Constraint::Length(2), // Console
                 Constraint::Length(2), // Status bar
             ]
             .as_ref(),
@@ -27,8 +26,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         1 => draw_debug_tab(f, app, chunks[1]),
         _ => {}
     };
-    draw_prompt(f, app, chunks[2]);
-    draw_feedback_text(f, app, chunks[3]);
+    draw_feedback_text(f, app, chunks[2]);
 }
 
 fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
@@ -39,7 +37,7 @@ fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let tabs = Tabs::new(titles)
         .block(
             Block::default()
-                .title(app.title)
+                .title(Span::styled(app.title, styles::title()))
                 .borders(Borders::ALL)
                 .border_style(styles::border()),
         )
@@ -51,25 +49,14 @@ fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
 fn draw_console_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
+        .constraints([Constraint::Ratio(1, 4), Constraint::Ratio(3, 4)])
         .split(chunk);
     let inner_chunks = Layout::default()
-        .constraints([Constraint::Length(10), Constraint::Ratio(1, 2)])
+        .constraints([Constraint::Min(5), Constraint::Min(2)])
         .split(chunks[0]);
-    draw_overview(f, app, inner_chunks[0]);
-    draw_tasks(f, app, inner_chunks[1]);
-    draw_console(f, app, chunks[1]);
-}
-
-fn draw_console<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
-    let block = Block::default()
-        .title(Span::styled("Console", styles::title()))
-        .borders(Borders::ALL)
-        .border_style(styles::border());
-    let paragraph = Paragraph::new(Spans::from(app.user_feedback_text.clone()))
-        .block(block)
-        .wrap(Wrap { trim: true });
-    f.render_widget(paragraph, chunk);
+    draw_tasks(f, app, chunks[1]);
+    draw_help(f, app, inner_chunks[0]);
+    draw_prompt(f, app, inner_chunks[1]);
 }
 
 fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
@@ -86,10 +73,10 @@ fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
     f.render_widget(paragraph, chunk);
 }
 
-fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
-    let spans = multiline_to_spans(&app.overview_text);
+fn draw_help<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
+    let spans = multiline_to_spans(&app.help_text);
     let block = Block::default()
-        .title(Span::styled("Overview", styles::title()))
+        .title(Span::styled("Help", styles::title()))
         .borders(Borders::ALL)
         .border_style(styles::border());
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });

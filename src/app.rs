@@ -60,7 +60,7 @@ pub struct App<'a> {
     pub textarea: TextArea<'a>,
     pub prompt_handler: Option<PromptHandler>,
     pub user_feedback_text: String,
-    pub overview_text: String,
+    pub help_text: String,
     pub task_list: Vec<Task>,
 }
 
@@ -75,7 +75,7 @@ impl<'a> App<'a> {
             textarea: TextArea::default(),
             prompt_handler: None,
             user_feedback_text: "".to_string(),
-            overview_text: "".to_string(),
+            help_text: "".to_string(),
             task_list: Vec::new(),
         }
     }
@@ -231,7 +231,7 @@ impl<'a> App<'a> {
             })
             .collect::<Result<Vec<_>, io::Error>>()?;
         entries.sort();
-        self.overview_text = format!("Available files:\n{}", entries.join("\n"));
+        self.help_text = format!("Available files:\n{}", entries.join("\n"));
         self.set_feedback_text("Refreshed file list.");
         Ok(())
     }
