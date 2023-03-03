@@ -1,6 +1,6 @@
 /// App state and logic
 use crate::ui;
-use crossterm::event::{Event, KeyCode, KeyEvent};
+use crossterm::event::{Event, KeyCode};
 use std::fs;
 use std::io::ErrorKind;
 use std::{
@@ -62,63 +62,60 @@ impl<'a> App<'a> {
     pub fn handle_events(&mut self, timeout: Duration) -> io::Result<()> {
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = crossterm::event::read()? {
+                // Handle normal events
                 if self.focus_text == false {
-                    self.handle_other_events(key.code);
+                    match key.code {
+                        KeyCode::Tab => self.increment_tab(),
+                        KeyCode::BackTab => self.decrement_tab(),
+                        KeyCode::Enter => {
+                            self.focus_text = true;
+                        }
+                        KeyCode::Char(c) => match c {
+                            'q' => self.should_quit = true,
+                            _ => self
+                                .console_log
+                                .push(LogMessage::Status(format!("Input: {c}"))),
+                        },
+                        _ => (),
+                    }
+                // Handle focused text input events
                 } else {
-                    self.handle_input_event(key);
+                    match key.code {
+                        KeyCode::Esc => {
+                            self.focus_text = false;
+                        }
+                        KeyCode::Enter => {
+                            self.focus_text = false;
+                            self.run_command(&self.textarea.lines()[0].clone());
+                        }
+                        KeyCode::Tab => self.increment_tab(),
+                        KeyCode::BackTab => self.decrement_tab(),
+                        _ => {
+                            self.textarea.input(key);
+                        }
+                    };
                 }
             }
         }
         Ok(())
     }
 
-    fn handle_input_event(&mut self, key_event: KeyEvent) {
-        match key_event.code {
-            KeyCode::Esc => {
-                self.focus_text = false;
-            }
-            KeyCode::Enter => {
-                self.focus_text = false;
-                let command = self.textarea.lines()[0].clone();
-                self.console_log.push(LogMessage::Command(command.clone()));
-                self.textarea.move_cursor(CursorMove::Top);
-                self.textarea.move_cursor(CursorMove::Head);
-                while self.textarea.lines().len() > 1 {
-                    self.textarea.delete_line_by_end();
-                }
-                self.textarea.delete_line_by_end();
-                self.overview_text = match read_file(&command) {
-                    Err(e) => format!("{e}"),
-                    Ok(e) => e,
-                };
-                let response = LogMessage::Response("See overview.".to_string());
-                self.console_log.push(response);
-            }
-            KeyCode::Tab => self.increment_tab(),
-            KeyCode::BackTab => self.decrement_tab(),
-            _ => {
-                self.textarea.input(key_event);
-            }
-        };
-    }
-
-    fn handle_other_events(&mut self, codepoint: KeyCode) {
-        match codepoint {
-            KeyCode::Tab => self.increment_tab(),
-            KeyCode::BackTab => self.decrement_tab(),
-            KeyCode::Enter => {
-                self.focus_text = true;
-            }
-            KeyCode::Char(c) => match c {
-                'q' => self.should_quit = true,
-                _ => self
-                    .console_log
-                    .push(LogMessage::Status(format!("Input: {c}"))),
-            },
-            _ => (),
+    fn run_command(&mut self, command: &str) {
+        self.console_log
+            .push(LogMessage::Command(command.to_string()));
+        self.textarea.move_cursor(CursorMove::Top);
+        self.textarea.move_cursor(CursorMove::Head);
+        while self.textarea.lines().len() > 1 {
+            self.textarea.delete_line_by_end();
         }
+        self.textarea.delete_line_by_end();
+        self.overview_text = match read_file(command) {
+            Err(e) => format!("{e}"),
+            Ok(e) => e,
+        };
+        let response = LogMessage::Response("See overview.".to_string());
+        self.console_log.push(response);
     }
-
     fn decrement_tab(&mut self) {
         if self.tab_index > 0 {
             self.tab_index -= 1;
