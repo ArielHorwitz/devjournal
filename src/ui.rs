@@ -54,10 +54,10 @@ fn draw_console_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
         .split(chunk);
     let inner_chunks = Layout::default()
         .constraints([Constraint::Length(10), Constraint::Ratio(1, 2)])
-        .split(chunks[1]);
-    draw_console(f, app, chunks[0]);
+        .split(chunks[0]);
     draw_overview(f, app, inner_chunks[0]);
     draw_tasks(f, app, inner_chunks[1]);
+    draw_console(f, app, chunks[1]);
 }
 
 fn draw_console<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
