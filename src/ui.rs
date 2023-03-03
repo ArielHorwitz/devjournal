@@ -33,7 +33,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let titles = vec!["Console", "Debug"]
         .iter()
-        .map(|t| Spans::from(Span::styled(*t, Style::default().fg(Color::Green))))
+        .map(|t| Spans::from(Span::styled(*t, Style::default().fg(Color::DarkGray))))
         .collect();
     let tabs = Tabs::new(titles)
         .block(
@@ -75,12 +75,15 @@ fn draw_console<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
         .iter()
         .map(|message| span_from_log_message(message))
         .collect();
-    let block = Block::default().borders(Borders::ALL).title(Span::styled(
-        "Console",
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD),
-    ));
+    let block = Block::default()
+        .title(Span::styled(
+            "Console",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
@@ -91,24 +94,30 @@ fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
         .iter()
         .map(|t| Spans::from(format!("- {}", t.desc)))
         .collect();
-    let block = Block::default().borders(Borders::ALL).title(Span::styled(
-        "Tasks",
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD),
-    ));
+    let block = Block::default()
+        .title(Span::styled(
+            "Tasks",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
 
 fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
     let spans = multiline_to_spans(&app.overview_text);
-    let block = Block::default().borders(Borders::ALL).title(Span::styled(
-        "Overview",
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD),
-    ));
+    let block = Block::default()
+        .title(Span::styled(
+            "Overview",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
@@ -170,7 +179,10 @@ where
         .iter()
         .map(|c| {
             let cells = vec![
-                Cell::from(Span::raw(format!("{:?}: ", c))),
+                Cell::from(Span::styled(
+                    format!("{:?}: ", c),
+                    Style::default().fg(Color::White),
+                )),
                 Cell::from(Span::styled("Foreground", Style::default().fg(*c))),
                 Cell::from(Span::styled(
                     "Background",
@@ -181,7 +193,17 @@ where
         })
         .collect();
     let table = Table::new(items)
-        .block(Block::default().title("Colors").borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title(Span::styled(
+                    "Colors",
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ))
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        )
         .widths(&[
             Constraint::Ratio(1, 3),
             Constraint::Ratio(1, 3),
