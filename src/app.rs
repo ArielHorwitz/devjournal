@@ -156,9 +156,15 @@ impl<'a> App<'a> {
     }
 
     fn command_load(&mut self, args: Vec<&str>) {
-        let file = if args.len() > 0 { args[0] } else { "" };
-        self.overview_text = match read_file(file) {
-            Err(e) => format!("{e}"),
+        if args.len() == 0 {
+            match get_files() {
+                Ok(v) => self.overview_text = format!("Available files:\n{}", v.join("\n")),
+                Err(e) => self.overview_text = format!("Error reading files:\n{e}"),
+            }
+            return;
+        }
+        self.overview_text = match read_file(args[0]) {
+            Err(e) => format!("Error reading file:\n{e}"),
             Ok(e) => e,
         };
         let response = LogMessage::Response("See overview.".to_string());
@@ -217,15 +223,13 @@ fn read_file(file_name: &str) -> Result<String, io::Error> {
             };
         }
     }
+    Err(io::Error::new(ErrorKind::NotFound, "No files found."))
+}
+
+fn get_files() -> Result<Vec<String>, io::Error> {
     let mut entries = fs::read_dir("data/")?
         .map(|res| res.map(|e| e.path().to_str().unwrap().to_string()))
         .collect::<Result<Vec<_>, io::Error>>()?;
     entries.sort();
-    Err(io::Error::new(
-        ErrorKind::NotFound,
-        format!(
-            "No files found.\n\nAvailable files:\n  {}",
-            entries.join("\n  ")
-        ),
-    ))
+    Ok(entries)
 }
