@@ -1,6 +1,5 @@
 /// Main entry point
 mod app;
-mod styles;
 mod ui;
 use app::run_app;
 use crossterm::{

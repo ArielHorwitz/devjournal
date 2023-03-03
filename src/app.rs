@@ -17,6 +17,7 @@ use tui::{backend::Backend, Terminal};
 use tui_textarea::{CursorMove, TextArea};
 
 const TICK_RATE_MS: u64 = 25;
+const LAST_TAB_INDEX: usize = 1;
 
 #[derive(Debug, Clone)]
 pub enum PromptHandler {
@@ -48,8 +49,6 @@ impl Task {
         }
     }
 }
-
-const LAST_TAB_INDEX: usize = 1;
 
 pub struct App<'a> {
     pub title: &'a str,
@@ -149,15 +148,19 @@ impl<'a> App<'a> {
 
     fn handle_prompt(&mut self, handlerkind: &PromptHandler, prompt_text: &str) {
         match handlerkind {
-            PromptHandler::AddTask => self.command_add_task(prompt_text),
-            PromptHandler::RemoveTask => self.command_remove_task(prompt_text),
+            PromptHandler::AddTask => self.add_task(prompt_text),
+            PromptHandler::RemoveTask => {
+                if let Ok(index) = prompt_text.parse::<usize>() {
+                    self.remove_task(index);
+                }
+            }
             PromptHandler::SaveFile => {
-                if let Err(e) = self.command_save(prompt_text) {
+                if let Err(e) = self.save_file(prompt_text) {
                     self.set_feedback_text(&e.to_string());
                 }
             }
             PromptHandler::LoadFile => {
-                if let Err(e) = self.command_load(prompt_text) {
+                if let Err(e) = self.load_file(prompt_text) {
                     self.set_feedback_text(&e.to_string());
                 }
             }
@@ -177,41 +180,39 @@ impl<'a> App<'a> {
         text
     }
 
-    fn command_add_task(&mut self, prompt_text: &str) {
-        self.task_list.push(Task::new(prompt_text));
-        self.set_feedback_text(&format!("Added task: {prompt_text}"));
+    fn add_task(&mut self, desc: &str) {
+        self.task_list.push(Task::new(desc));
+        self.set_feedback_text(&format!("Added task: {desc}"));
     }
 
-    fn command_remove_task(&mut self, prompt_text: &str) {
-        if let Ok(index) = prompt_text.parse::<usize>() {
-            if index < self.task_list.len() {
-                let desc = self.task_list.get(index.clone()).unwrap().desc.clone();
-                self.task_list.remove(index);
-                self.set_feedback_text(&format!("Deleted task: {}", desc));
-            }
+    fn remove_task(&mut self, index: usize) {
+        if index < self.task_list.len() {
+            let desc = self.task_list.get(index.clone()).unwrap().desc.clone();
+            self.task_list.remove(index);
+            self.set_feedback_text(&format!("Deleted task: {}", desc));
         }
     }
 
-    fn command_save(&mut self, prompt_text: &str) -> Result<(), io::Error> {
+    fn save_file(&mut self, file_name: &str) -> Result<(), io::Error> {
         match bincode::serialize(&self.task_list) {
             Ok(encoded) => {
-                let mut file = File::create(&Path::join(&self.datadir, prompt_text))?;
+                let mut file = File::create(&Path::join(&self.datadir, file_name))?;
                 file.write_all(&encoded)?;
-                self.set_feedback_text(&format!("Saved file: {prompt_text}"));
+                self.set_feedback_text(&format!("Saved file: {file_name}"));
                 Ok(())
             }
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
         }
     }
 
-    fn command_load(&mut self, prompt_text: &str) -> Result<(), io::Error> {
-        let mut file = File::open(&Path::join(&self.datadir, prompt_text))?;
+    fn load_file(&mut self, file_name: &str) -> Result<(), io::Error> {
+        let mut file = File::open(&Path::join(&self.datadir, file_name))?;
         let mut encoded: Vec<u8> = Vec::new();
         file.read_to_end(&mut encoded)?;
         match bincode::deserialize(encoded.as_slice()) {
             Ok(decoded) => {
                 self.task_list = decoded;
-                self.set_feedback_text(&format!("Loaded file: {prompt_text}"));
+                self.set_feedback_text(&format!("Loaded file: {file_name}"));
                 return Ok(());
             }
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
