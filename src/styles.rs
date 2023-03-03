@@ -4,6 +4,13 @@ pub fn dim() -> Style {
     Style::default().fg(Color::DarkGray)
 }
 
+pub fn highlight() -> Style {
+    Style::default()
+        .bg(Color::LightBlue)
+        .fg(Color::Black)
+        .add_modifier(Modifier::BOLD)
+}
+
 pub fn active_tab() -> Style {
     Style::default()
         .fg(Color::Magenta)

@@ -15,7 +15,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             [
                 Constraint::Length(3), // Tab bar
                 Constraint::Min(0),    // Tab content
-                Constraint::Length(1), // Console
+                Constraint::Length(2), // Console
                 Constraint::Length(2), // Status bar
             ]
             .as_ref(),
@@ -27,7 +27,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         1 => draw_debug_tab(f, app, chunks[1]),
         _ => {}
     };
-    draw_text_area(f, app, chunks[2]);
+    draw_prompt(f, app, chunks[2]);
     draw_feedback_text(f, app, chunks[3]);
 }
 
@@ -96,6 +96,41 @@ fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
     f.render_widget(paragraph, chunk);
 }
 
+fn draw_prompt<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+    let chunks = Layout::default()
+        .constraints([Constraint::Max(1), Constraint::Max(1)])
+        .split(chunk);
+    let style = match app.prompt_handler {
+        Some(_) => styles::prompt(),
+        None => styles::dim(),
+    };
+    app.textarea.set_style(style);
+    let cursor_style = match app.prompt_handler {
+        Some(_) => Style::default().bg(Color::Magenta),
+        None => Style::default().bg(Color::Black),
+    };
+    let prompt_text: String;
+    match &app.prompt_handler {
+        Some(handler) => prompt_text = format!("{}:", handler.to_string()),
+        None => prompt_text = "".to_string(),
+    }
+    app.textarea.set_cursor_style(cursor_style);
+    f.render_widget(
+        Paragraph::new(Spans::from(Span::styled(prompt_text, styles::highlight()))),
+        chunks[0],
+    );
+    f.render_widget(app.textarea.widget(), chunks[1])
+}
+
+fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::dim());
+    let block = Block::default()
+        .borders(Borders::TOP)
+        .border_style(styles::border());
+    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
+    f.render_widget(paragraph, chunk);
+}
+
 fn draw_debug_tab<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
 where
     B: Backend,
@@ -153,29 +188,6 @@ where
             Constraint::Ratio(1, 3),
         ]);
     f.render_widget(table, chunks[0]);
-}
-
-fn draw_text_area<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let style = match app.prompt_handler {
-        Some(_) => styles::prompt(),
-        None => styles::dim(),
-    };
-    app.textarea.set_style(style);
-    let cursor_style = match app.prompt_handler {
-        Some(_) => Style::default().bg(Color::Magenta),
-        None => Style::default().bg(Color::Black),
-    };
-    app.textarea.set_cursor_style(cursor_style);
-    f.render_widget(app.textarea.widget(), chunk)
-}
-
-fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::dim());
-    let block = Block::default()
-        .borders(Borders::TOP)
-        .border_style(styles::border());
-    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
-    f.render_widget(paragraph, chunk);
 }
 
 fn multiline_to_spans(text: &str) -> Vec<Spans> {

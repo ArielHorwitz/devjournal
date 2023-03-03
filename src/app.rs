@@ -4,6 +4,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use pathdiff::diff_paths;
 use platform_dirs::AppDirs;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::fs;
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
@@ -17,12 +18,18 @@ use tui_textarea::{CursorMove, TextArea};
 
 const TICK_RATE_MS: u64 = 25;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum PromptHandler {
     AddTask,
     RemoveTask,
     SaveFile,
     LoadFile,
+}
+
+impl fmt::Display for PromptHandler {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
