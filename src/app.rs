@@ -1,9 +1,12 @@
 /// App state and logic
 use crate::ui;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use pathdiff::diff_paths;
+use platform_dirs::AppDirs;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{ErrorKind, Write};
+use std::path::{Path, PathBuf};
 use std::{
     fs::File,
     io::{self, Read},
@@ -49,6 +52,7 @@ const LAST_TAB_INDEX: usize = 1;
 
 pub struct App<'a> {
     pub title: &'a str,
+    pub datadir: PathBuf,
     pub should_quit: bool,
     pub tab_index: usize,
     pub tick: i32,
@@ -60,9 +64,10 @@ pub struct App<'a> {
 }
 
 impl<'a> App<'a> {
-    pub fn new(title: &'a str) -> App<'a> {
+    pub fn new(title: &'a str, datadir: PathBuf) -> App<'a> {
         App {
             title,
+            datadir,
             should_quit: false,
             tab_index: 0,
             tick: 0,
@@ -196,7 +201,7 @@ impl<'a> App<'a> {
     fn command_save(&mut self, prompt_text: &str) -> Result<(), io::Error> {
         match bincode::serialize(&self.task_list) {
             Ok(encoded) => {
-                let mut file = File::create(format!("data/{}", prompt_text))?;
+                let mut file = File::create(&Path::join(&self.datadir, prompt_text))?;
                 file.write_all(&encoded)?;
                 Ok(())
             }
@@ -205,7 +210,7 @@ impl<'a> App<'a> {
     }
 
     fn command_load(&mut self, prompt_text: &str) -> Result<(), io::Error> {
-        let mut file = File::open(format!("data/{}", prompt_text))?;
+        let mut file = File::open(&Path::join(&self.datadir, prompt_text))?;
         let mut encoded: Vec<u8> = Vec::new();
         file.read_to_end(&mut encoded)?;
         match bincode::deserialize(encoded.as_slice()) {
@@ -218,8 +223,16 @@ impl<'a> App<'a> {
     }
 
     fn print_file_list(&mut self) -> Result<(), io::Error> {
-        let mut entries = fs::read_dir("data/")?
-            .map(|res| res.map(|e| e.path().to_str().unwrap().to_string()))
+        let mut entries = fs::read_dir(&self.datadir)?
+            .map(|res| {
+                res.map(|e| {
+                    diff_paths(e.path(), &self.datadir)
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string()
+                })
+            })
             .collect::<Result<Vec<_>, io::Error>>()?;
         entries.sort();
         self.overview_text = format!("Available files:\n{}", entries.join("\n"));
@@ -244,8 +257,10 @@ impl<'a> App<'a> {
 }
 
 pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
+    let datadir = AppDirs::new(Some("devboard"), false).unwrap().data_dir;
+    fs::create_dir_all(&datadir).unwrap();
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
-    let mut app = App::new("Dev Board");
+    let mut app = App::new("Dev Board", datadir);
     app.print_file_list().unwrap();
     let mut last_tick = Instant::now();
     loop {
