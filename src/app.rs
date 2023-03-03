@@ -19,6 +19,22 @@ pub enum LogMessage {
     Response(String),
 }
 
+pub struct Task {
+    pub desc: String,
+    pub created_at: String,
+    pub completed_at: Option<String>,
+}
+
+impl Task {
+    pub fn new(desc: &str) -> Task {
+        Task {
+            desc: desc.to_string(),
+            created_at: "2020-02-02 12:00:00".to_string(),
+            completed_at: None,
+        }
+    }
+}
+
 const LAST_TAB_INDEX: usize = 1;
 
 pub struct App<'a> {
@@ -30,6 +46,7 @@ pub struct App<'a> {
     pub focus_text: bool,
     pub console_log: Vec<LogMessage>,
     pub overview_text: String,
+    pub task_list: Vec<Task>,
 }
 
 impl<'a> App<'a> {
@@ -43,6 +60,7 @@ impl<'a> App<'a> {
             focus_text: false,
             console_log: vec![],
             overview_text: String::from("No document read."),
+            task_list: Vec::new(),
         }
     }
 
@@ -115,7 +133,9 @@ impl<'a> App<'a> {
         };
         let response = LogMessage::Response("See overview.".to_string());
         self.console_log.push(response);
+        self.task_list.push(Task::new(command));
     }
+
     fn decrement_tab(&mut self) {
         if self.tab_index > 0 {
             self.tab_index -= 1;

@@ -52,8 +52,12 @@ fn draw_console_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
         .split(chunk);
+    let inner_chunks = Layout::default()
+        .constraints([Constraint::Length(10), Constraint::Ratio(1, 2)])
+        .split(chunks[1]);
     draw_console(f, app, chunks[0]);
-    draw_overview(f, app, chunks[1]);
+    draw_overview(f, app, inner_chunks[0]);
+    draw_tasks(f, app, inner_chunks[1]);
 }
 
 fn draw_console<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
@@ -73,6 +77,22 @@ fn draw_console<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
         .collect();
     let block = Block::default().borders(Borders::ALL).title(Span::styled(
         "Console",
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    ));
+    let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
+    f.render_widget(paragraph, chunk);
+}
+
+fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
+    let spans: Vec<Spans> = app
+        .task_list
+        .iter()
+        .map(|t| Spans::from(format!("- {}", t.desc)))
+        .collect();
+    let block = Block::default().borders(Borders::ALL).title(Span::styled(
+        "Tasks",
         Style::default()
             .fg(Color::Yellow)
             .add_modifier(Modifier::BOLD),
