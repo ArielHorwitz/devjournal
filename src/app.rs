@@ -127,13 +127,42 @@ impl<'a> App<'a> {
             self.textarea.delete_line_by_end();
         }
         self.textarea.delete_line_by_end();
-        self.overview_text = match read_file(command) {
+        let mut args: Vec<&str> = command.split(" ").collect();
+        let command = args.remove(0);
+        match command {
+            "add" => self.command_add_task(args),
+            "rm" => self.command_remove_task(args),
+            "load" => self.command_load(args),
+            _ => (),
+        }
+    }
+
+    fn command_add_task(&mut self, args: Vec<&str>) {
+        if args.len() == 0 {
+            return;
+        }
+        self.task_list.push(Task::new(args[0]));
+    }
+
+    fn command_remove_task(&mut self, args: Vec<&str>) {
+        if args.len() == 0 {
+            return;
+        }
+        if let Ok(index) = args[0].parse() {
+            if index < self.task_list.len() {
+                self.task_list.remove(index);
+            }
+        }
+    }
+
+    fn command_load(&mut self, args: Vec<&str>) {
+        let file = if args.len() > 0 { args[0] } else { "" };
+        self.overview_text = match read_file(file) {
             Err(e) => format!("{e}"),
             Ok(e) => e,
         };
         let response = LogMessage::Response("See overview.".to_string());
         self.console_log.push(response);
-        self.task_list.push(Task::new(command));
     }
 
     fn decrement_tab(&mut self) {
