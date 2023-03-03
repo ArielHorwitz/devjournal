@@ -1,4 +1,4 @@
-use crate::app::{App, LogMessage};
+use crate::app::App;
 use crate::styles;
 use tui::{
     backend::Backend,
@@ -62,25 +62,13 @@ fn draw_console_tab<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
 }
 
 fn draw_console<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
-    let height = if chunk.height < 2 {
-        2
-    } else {
-        (chunk.height - 2) as usize
-    };
-    let range_start = if app.console_log.len() > height as usize {
-        app.console_log.len() - height as usize
-    } else {
-        0
-    };
-    let spans: Vec<Spans> = app.console_log[range_start..]
-        .iter()
-        .map(|message| span_from_log_message(message))
-        .collect();
     let block = Block::default()
         .title(Span::styled("Console", styles::title()))
         .borders(Borders::ALL)
         .border_style(styles::border());
-    let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
+    let paragraph = Paragraph::new(Spans::from(app.user_feedback_text.clone()))
+        .block(block)
+        .wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
 }
 
@@ -106,20 +94,6 @@ fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
         .border_style(styles::border());
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunk);
-}
-
-fn span_from_log_message(message: &LogMessage) -> Spans {
-    match message {
-        LogMessage::Status(text) => Spans::from(vec![
-            Span::styled("!> ", styles::highlight()),
-            Span::styled(text, styles::text()),
-        ]),
-        LogMessage::Command(text) => Spans::from(vec![
-            Span::styled("$ ", styles::highlight()),
-            Span::styled(text, styles::text()),
-        ]),
-        LogMessage::Response(text) => Spans::from(vec![Span::styled(text, styles::text())]),
-    }
 }
 
 fn draw_debug_tab<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
@@ -196,7 +170,7 @@ fn draw_text_area<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
 }
 
 fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let text = Span::styled(app.status_feedback(), styles::dim());
+    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::dim());
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(styles::border());

@@ -4,10 +4,6 @@ pub fn dim() -> Style {
     Style::default().fg(Color::DarkGray)
 }
 
-pub fn highlight() -> Style {
-    Style::default().fg(Color::Magenta)
-}
-
 pub fn active_tab() -> Style {
     Style::default()
         .fg(Color::Magenta)

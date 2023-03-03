@@ -25,12 +25,6 @@ pub enum PromptHandler {
     LoadFile,
 }
 
-pub enum LogMessage {
-    Status(String),
-    Command(String),
-    Response(String),
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Task {
     pub desc: String,
@@ -58,7 +52,7 @@ pub struct App<'a> {
     pub tick: i32,
     pub textarea: TextArea<'a>,
     pub prompt_handler: Option<PromptHandler>,
-    pub console_log: Vec<LogMessage>,
+    pub user_feedback_text: String,
     pub overview_text: String,
     pub task_list: Vec<Task>,
 }
@@ -73,19 +67,14 @@ impl<'a> App<'a> {
             tick: 0,
             textarea: TextArea::default(),
             prompt_handler: None,
-            console_log: vec![],
-            overview_text: String::from("No document read."),
+            user_feedback_text: "".to_string(),
+            overview_text: "".to_string(),
             task_list: Vec::new(),
         }
     }
 
-    pub fn status_feedback(&self) -> String {
-        for log_message in self.console_log.iter().rev() {
-            if let LogMessage::Status(text) = log_message {
-                return text.clone();
-            }
-        }
-        String::from("Welcome to DevBoard.")
+    pub fn set_feedback_text(&mut self, text: &str) {
+        self.user_feedback_text = text.to_string();
     }
 
     pub fn on_tick(&mut self) {
@@ -111,7 +100,7 @@ impl<'a> App<'a> {
             (KeyCode::BackTab, _) => self.decrement_tab(),
             (KeyCode::F(5), _) => {
                 if let Err(e) = self.print_file_list() {
-                    self.console_log.push(LogMessage::Response(format!("{e}")));
+                    self.set_feedback_text(&e.to_string());
                 };
             }
             (KeyCode::Delete, _) => {
@@ -123,18 +112,13 @@ impl<'a> App<'a> {
             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
                 self.prompt_handler = Some(PromptHandler::LoadFile);
             }
-            (KeyCode::Char(c), m) => match c {
+            (KeyCode::Char(c), _) => match c {
                 'q' => self.should_quit = true,
                 'a' => self.prompt_handler = Some(PromptHandler::AddTask),
                 'd' => self.prompt_handler = Some(PromptHandler::RemoveTask),
-                _ => self
-                    .console_log
-                    .push(LogMessage::Status(format!("Unknown hotkey: {c} + {:?}", m))),
+                _ => (),
             },
-            _ => self.console_log.push(LogMessage::Status(format!(
-                "Unknown hotkey: {:?} + {:?}",
-                key.code, key.modifiers
-            ))),
+            _ => (),
         }
     }
 
@@ -162,12 +146,12 @@ impl<'a> App<'a> {
             PromptHandler::RemoveTask => self.command_remove_task(prompt_text),
             PromptHandler::SaveFile => {
                 if let Err(e) = self.command_save(prompt_text) {
-                    self.console_log.push(LogMessage::Response(e.to_string()));
+                    self.set_feedback_text(&e.to_string());
                 }
             }
             PromptHandler::LoadFile => {
                 if let Err(e) = self.command_load(prompt_text) {
-                    self.console_log.push(LogMessage::Response(e.to_string()));
+                    self.set_feedback_text(&e.to_string());
                 }
             }
         };
@@ -188,12 +172,15 @@ impl<'a> App<'a> {
 
     fn command_add_task(&mut self, prompt_text: &str) {
         self.task_list.push(Task::new(prompt_text));
+        self.set_feedback_text(&format!("Added task: {prompt_text}"));
     }
 
     fn command_remove_task(&mut self, prompt_text: &str) {
-        if let Ok(index) = prompt_text.parse() {
+        if let Ok(index) = prompt_text.parse::<usize>() {
             if index < self.task_list.len() {
+                let desc = self.task_list.get(index.clone()).unwrap().desc.clone();
                 self.task_list.remove(index);
+                self.set_feedback_text(&format!("Deleted task: {}", desc));
             }
         }
     }
@@ -203,6 +190,7 @@ impl<'a> App<'a> {
             Ok(encoded) => {
                 let mut file = File::create(&Path::join(&self.datadir, prompt_text))?;
                 file.write_all(&encoded)?;
+                self.set_feedback_text(&format!("Saved file: {prompt_text}"));
                 Ok(())
             }
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
@@ -216,6 +204,7 @@ impl<'a> App<'a> {
         match bincode::deserialize(encoded.as_slice()) {
             Ok(decoded) => {
                 self.task_list = decoded;
+                self.set_feedback_text(&format!("Loaded file: {prompt_text}"));
                 return Ok(());
             }
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
@@ -236,6 +225,7 @@ impl<'a> App<'a> {
             .collect::<Result<Vec<_>, io::Error>>()?;
         entries.sort();
         self.overview_text = format!("Available files:\n{}", entries.join("\n"));
+        self.set_feedback_text("Refreshed file list.");
         Ok(())
     }
 
@@ -262,6 +252,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
     let mut app = App::new("Dev Board", datadir);
     app.print_file_list().unwrap();
+    app.set_feedback_text("Welcome to DevBoard.");
     let mut last_tick = Instant::now();
     loop {
         terminal.draw(|f| ui::draw(f, &mut app))?;
