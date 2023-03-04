@@ -72,7 +72,7 @@ pub struct App<'a> {
 
 impl<'a> App<'a> {
     pub fn new(title: &'a str, datadir: PathBuf) -> App<'a> {
-        App {
+        let mut app = App {
             title,
             datadir: datadir.clone(),
             active_file: Path::join(&datadir, "dev"),
@@ -85,7 +85,11 @@ impl<'a> App<'a> {
             help_text: "".to_string(),
             task_list: Vec::new(),
             task_selection: ListState::default(),
-        }
+        };
+        app.print_file_list().unwrap();
+        app.load_file(None).unwrap();
+        app.set_feedback_text(&format!("Welcome to {title}"));
+        app
     }
 
     pub fn set_feedback_text(&mut self, text: &str) {
@@ -389,9 +393,6 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
     fs::create_dir_all(&datadir).unwrap();
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
     let mut app = App::new("DevBoard", datadir);
-    app.print_file_list().unwrap();
-    app.load_file(None).unwrap();
-    app.set_feedback_text("Welcome to DevBoard.");
     let mut last_tick = Instant::now();
     loop {
         terminal.draw(|f| ui::draw(f, &mut app))?;
