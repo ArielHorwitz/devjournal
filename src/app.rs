@@ -1,12 +1,15 @@
 /// App state and logic
 use crate::ui;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::{
+    event::{Event, KeyCode, KeyEvent, KeyModifiers},
+    terminal::SetTitle,
+};
 use pathdiff::diff_paths;
 use platform_dirs::AppDirs;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs;
-use std::io::{ErrorKind, Write};
+use std::io::{stdout, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::{
     fs::File,
@@ -63,13 +66,15 @@ pub struct App<'a> {
     pub help_text: String,
     pub task_list: Vec<Task>,
     pub task_selection: ListState,
+    pub active_file: PathBuf,
 }
 
 impl<'a> App<'a> {
     pub fn new(title: &'a str, datadir: PathBuf) -> App<'a> {
         App {
             title,
-            datadir,
+            datadir: datadir.clone(),
+            active_file: Path::join(&datadir, "dev"),
             should_quit: false,
             tab_index: 0,
             tick: 0,
@@ -88,6 +93,8 @@ impl<'a> App<'a> {
 
     pub fn on_tick(&mut self) {
         self.tick += 1;
+        let title = format!("{} - {}", self.title, self.active_file.to_str().unwrap());
+        crossterm::queue!(stdout(), SetTitle(title)).unwrap_or(());
     }
 
     pub fn handle_events(&mut self, timeout: Duration) -> io::Result<()> {
@@ -119,7 +126,12 @@ impl<'a> App<'a> {
                 self.task_list = Vec::new();
             }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
-                self.prompt_handler = Some(PromptHandler::SaveFile);
+                if let Err(e) = self.save_file(None) {
+                    self.set_feedback_text(&e.to_string());
+                };
+            }
+            (KeyCode::Char('s'), KeyModifiers::ALT) => {
+                self.prompt_handler = Some(PromptHandler::SaveFile)
             }
             (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
                 self.prompt_handler = Some(PromptHandler::LoadFile);
@@ -179,12 +191,17 @@ impl<'a> App<'a> {
                 }
             }
             PromptHandler::SaveFile => {
-                if let Err(e) = self.save_file(prompt_text) {
-                    self.set_feedback_text(&e.to_string());
-                }
+                match self.save_file(Some(prompt_text)) {
+                    Ok(_) => {
+                        if let Err(e) = self.print_file_list() {
+                            self.set_feedback_text(&e.to_string());
+                        };
+                    }
+                    Err(e) => self.set_feedback_text(&e.to_string()),
+                };
             }
             PromptHandler::LoadFile => {
-                if let Err(e) = self.load_file(prompt_text) {
+                if let Err(e) = self.load_file(Some(prompt_text)) {
                     self.set_feedback_text(&e.to_string());
                 }
             }
@@ -218,26 +235,33 @@ impl<'a> App<'a> {
         }
     }
 
-    fn save_file(&mut self, file_name: &str) -> Result<(), io::Error> {
+    fn save_file(&mut self, filename: Option<&str>) -> Result<(), io::Error> {
+        if let Some(name) = filename {
+            self.active_file = self.datadir.join(name);
+        }
+        let filepath = self.active_file.clone();
         match bincode::serialize(&self.task_list) {
             Ok(encoded) => {
-                let mut file = File::create(&Path::join(&self.datadir, file_name))?;
+                let mut file = File::create(&filepath)?;
                 file.write_all(&encoded)?;
-                self.set_feedback_text(&format!("Saved file: {file_name}"));
+                self.set_feedback_text(&format!("Saved file: {}", filepath.to_str().unwrap()));
                 Ok(())
             }
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
         }
     }
 
-    fn load_file(&mut self, file_name: &str) -> Result<(), io::Error> {
-        let mut file = File::open(&Path::join(&self.datadir, file_name))?;
+    fn load_file(&mut self, filename: Option<&str>) -> Result<(), io::Error> {
+        if let Some(name) = filename {
+            self.active_file = self.datadir.join(name);
+        }
+        let filepath = self.active_file.clone();
         let mut encoded: Vec<u8> = Vec::new();
-        file.read_to_end(&mut encoded)?;
+        File::open(&filepath)?.read_to_end(&mut encoded)?;
         match bincode::deserialize(encoded.as_slice()) {
             Ok(decoded) => {
                 self.task_list = decoded;
-                self.set_feedback_text(&format!("Loaded file: {file_name}"));
+                self.set_feedback_text(&format!("Loaded file: {}", filepath.to_str().unwrap()));
                 return Ok(());
             }
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
@@ -349,6 +373,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
     let mut app = App::new("Dev Board", datadir);
     app.print_file_list().unwrap();
+    app.load_file(None).unwrap();
     app.set_feedback_text("Welcome to DevBoard.");
     let mut last_tick = Instant::now();
     loop {
