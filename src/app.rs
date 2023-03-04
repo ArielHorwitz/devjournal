@@ -120,9 +120,11 @@ impl<'a> App<'a> {
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                 self.prompt_handler = Some(PromptHandler::SaveFile);
             }
-            (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
                 self.prompt_handler = Some(PromptHandler::LoadFile);
             }
+            (KeyCode::Char('j'), KeyModifiers::CONTROL) => self.move_task_next(),
+            (KeyCode::Char('k'), KeyModifiers::CONTROL) => self.move_task_prev(),
             (KeyCode::Char(c), KeyModifiers::NONE) => match c {
                 'q' => self.should_quit = true,
                 'j' => self.next_task(),
@@ -243,8 +245,8 @@ impl<'a> App<'a> {
         Ok(())
     }
 
-    fn next_task(&mut self) {
-        let i = match self.task_selection.selected() {
+    fn get_next_task(&self) -> usize {
+        match self.task_selection.selected() {
             Some(selected) => {
                 if selected >= self.task_list.len() - 1 {
                     0
@@ -253,12 +255,11 @@ impl<'a> App<'a> {
                 }
             }
             None => 0,
-        };
-        self.task_selection.select(Some(i))
+        }
     }
 
-    fn prev_task(&mut self) {
-        let i = match self.task_selection.selected() {
+    fn get_prev_task(&self) -> usize {
+        match self.task_selection.selected() {
             Some(selected) => {
                 if selected == 0 {
                     self.task_list.len() - 1
@@ -267,8 +268,45 @@ impl<'a> App<'a> {
                 }
             }
             None => self.task_list.len().max(1) - 1,
-        };
-        self.task_selection.select(Some(i))
+        }
+    }
+
+    fn get_task_index(&self) -> usize {
+        match self.task_selection.selected() {
+            Some(selected) => selected,
+            None => 0,
+        }
+    }
+
+    fn next_task(&mut self) {
+        self.task_selection.select(Some(self.get_next_task()))
+    }
+
+    fn prev_task(&mut self) {
+        self.task_selection.select(Some(self.get_prev_task()))
+    }
+
+    fn move_task_next(&mut self) {
+        let index = self.get_task_index();
+        if index < self.task_list.len() - 1 {
+            self.task_list.swap(index, index + 1);
+        } else {
+            let element = self.task_list.remove(index);
+            self.task_list.insert(0, element);
+        }
+        self.next_task();
+    }
+
+    fn move_task_prev(&mut self) {
+        let index = self.get_task_index();
+        if index > 0 {
+            self.task_list.swap(index, index - 1);
+        } else {
+            let last = self.task_list.len() - 1;
+            let element = self.task_list.remove(index);
+            self.task_list.insert(last, element);
+        }
+        self.prev_task();
     }
 
     fn decrement_tab(&mut self) {
