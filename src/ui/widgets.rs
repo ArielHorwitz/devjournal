@@ -5,21 +5,26 @@ use tui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
 };
 
-pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
+pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let enumerated_tasks = (0..app.task_list.len()).zip(app.task_list.iter());
-    let spans: Vec<Spans> = enumerated_tasks
-        .map(|(i, t)| Spans::from(format!("{i}. {}", t.desc)))
+    let list_items: Vec<ListItem> = enumerated_tasks
+        .map(|(i, t)| ListItem::new(format!("{i}. {}", t.desc)))
         .collect();
-    let block = Block::default()
-        .title(Span::styled("Tasks", styles::title()))
-        .borders(Borders::ALL)
-        .border_style(styles::border());
-    let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
-    f.render_widget(paragraph, chunk);
+    let list = List::new(list_items)
+        .style(styles::text())
+        .highlight_style(styles::highlight())
+        .highlight_symbol(">> ")
+        .block(
+            Block::default()
+                .title(Span::styled("Tasks", styles::title()))
+                .borders(Borders::ALL)
+                .border_style(styles::border()),
+        );
+    f.render_stateful_widget(list, chunk, &mut app.task_selection);
 }
 
 pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {

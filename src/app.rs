@@ -13,6 +13,7 @@ use std::{
     io::{self, Read},
     time::{Duration, Instant},
 };
+use tui::widgets::ListState;
 use tui::{backend::Backend, Terminal};
 use tui_textarea::{CursorMove, TextArea};
 
@@ -22,7 +23,6 @@ const LAST_TAB_INDEX: usize = 1;
 #[derive(Debug, Clone)]
 pub enum PromptHandler {
     AddTask,
-    RemoveTask,
     SaveFile,
     LoadFile,
 }
@@ -61,6 +61,7 @@ pub struct App<'a> {
     pub user_feedback_text: String,
     pub help_text: String,
     pub task_list: Vec<Task>,
+    pub task_selection: ListState,
 }
 
 impl<'a> App<'a> {
@@ -76,6 +77,7 @@ impl<'a> App<'a> {
             user_feedback_text: "".to_string(),
             help_text: "".to_string(),
             task_list: Vec::new(),
+            task_selection: ListState::default(),
         }
     }
 
@@ -102,6 +104,9 @@ impl<'a> App<'a> {
 
     fn handle_event_normal(&mut self, key: KeyEvent) {
         match (key.code, key.modifiers) {
+            (KeyCode::Esc, _) => self.task_selection.select(None),
+            (KeyCode::Up, _) => self.prev_task(),
+            (KeyCode::Down, _) => self.next_task(),
             (KeyCode::Tab, _) => self.increment_tab(),
             (KeyCode::BackTab, _) => self.decrement_tab(),
             (KeyCode::F(5), _) => {
@@ -118,10 +123,16 @@ impl<'a> App<'a> {
             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
                 self.prompt_handler = Some(PromptHandler::LoadFile);
             }
-            (KeyCode::Char(c), _) => match c {
+            (KeyCode::Char(c), KeyModifiers::NONE) => match c {
                 'q' => self.should_quit = true,
+                'j' => self.next_task(),
+                'k' => self.prev_task(),
                 'a' => self.prompt_handler = Some(PromptHandler::AddTask),
-                'd' => self.prompt_handler = Some(PromptHandler::RemoveTask),
+                'd' => {
+                    if let Some(index) = self.task_selection.selected() {
+                        self.remove_task(index);
+                    }
+                }
                 _ => (),
             },
             _ => (),
@@ -149,11 +160,6 @@ impl<'a> App<'a> {
     fn handle_prompt(&mut self, handlerkind: &PromptHandler, prompt_text: &str) {
         match handlerkind {
             PromptHandler::AddTask => self.add_task(prompt_text),
-            PromptHandler::RemoveTask => {
-                if let Ok(index) = prompt_text.parse::<usize>() {
-                    self.remove_task(index);
-                }
-            }
             PromptHandler::SaveFile => {
                 if let Err(e) = self.save_file(prompt_text) {
                     self.set_feedback_text(&e.to_string());
@@ -235,6 +241,34 @@ impl<'a> App<'a> {
         self.help_text = format!("Available files:\n{}", entries.join("\n"));
         self.set_feedback_text("Refreshed file list.");
         Ok(())
+    }
+
+    fn next_task(&mut self) {
+        let i = match self.task_selection.selected() {
+            Some(selected) => {
+                if selected >= self.task_list.len() - 1 {
+                    0
+                } else {
+                    selected + 1
+                }
+            }
+            None => 0,
+        };
+        self.task_selection.select(Some(i))
+    }
+
+    fn prev_task(&mut self) {
+        let i = match self.task_selection.selected() {
+            Some(selected) => {
+                if selected == 0 {
+                    self.task_list.len() - 1
+                } else {
+                    selected - 1
+                }
+            }
+            None => self.task_list.len().max(1) - 1,
+        };
+        self.task_selection.select(Some(i))
     }
 
     fn decrement_tab(&mut self) {
