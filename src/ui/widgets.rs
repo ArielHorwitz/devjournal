@@ -10,8 +10,10 @@ use tui::{
 };
 
 pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let enumerated_tasks = (0..app.task_list.len()).zip(app.task_list.iter());
-    let list_items: Vec<ListItem> = enumerated_tasks
+    let list_items: Vec<ListItem> = app
+        .task_list
+        .iter()
+        .enumerate()
         .map(|(i, t)| ListItem::new(format!("{i}. {}", t.desc)))
         .collect();
     let list = List::new(list_items)
