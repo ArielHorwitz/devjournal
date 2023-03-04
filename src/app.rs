@@ -8,7 +8,7 @@ use pathdiff::diff_paths;
 use platform_dirs::AppDirs;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fs;
+use std::fs::{self, remove_file};
 use std::io::{stdout, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::{
@@ -29,6 +29,7 @@ pub enum PromptHandler {
     RenameTask,
     SaveFile,
     LoadFile,
+    DeleteFile,
 }
 
 impl fmt::Display for PromptHandler {
@@ -118,8 +119,9 @@ impl<'a> App<'a> {
             (KeyCode::Tab, _) => self.increment_tab(),
             (KeyCode::BackTab, _) => self.decrement_tab(),
             (KeyCode::F(5), _) => {
-                if let Err(e) = self.print_file_list() {
-                    self.set_feedback_text(&e.to_string());
+                match self.print_file_list() {
+                    Ok(_) => self.set_feedback_text("Refreshed file list."),
+                    Err(e) => self.set_feedback_text(&e.to_string()),
                 };
             }
             (KeyCode::Delete, _) => {
@@ -135,6 +137,9 @@ impl<'a> App<'a> {
             }
             (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
                 self.prompt_handler = Some(PromptHandler::LoadFile);
+            }
+            (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
+                self.prompt_handler = Some(PromptHandler::DeleteFile);
             }
             (KeyCode::Char('j'), KeyModifiers::CONTROL) => self.move_task_next(),
             (KeyCode::Char('k'), KeyModifiers::CONTROL) => self.move_task_prev(),
@@ -205,6 +210,11 @@ impl<'a> App<'a> {
                     self.set_feedback_text(&e.to_string());
                 }
             }
+            PromptHandler::DeleteFile => {
+                if let Err(e) = self.delete_file(prompt_text) {
+                    self.set_feedback_text(&e.to_string());
+                }
+            }
         };
     }
 
@@ -268,6 +278,14 @@ impl<'a> App<'a> {
         }
     }
 
+    fn delete_file(&mut self, filename: &str) -> io::Result<()> {
+        let filepath = self.datadir.join(filename);
+        remove_file(&filepath)?;
+        self.set_feedback_text(&format!("Deleted file: {}", filepath.to_str().unwrap()));
+        self.print_file_list()?;
+        Ok(())
+    }
+
     fn print_file_list(&mut self) -> Result<(), io::Error> {
         let mut entries = fs::read_dir(&self.datadir)?
             .map(|res| {
@@ -282,7 +300,6 @@ impl<'a> App<'a> {
             .collect::<Result<Vec<_>, io::Error>>()?;
         entries.sort();
         self.help_text = format!("Available files:\n{}", entries.join("\n"));
-        self.set_feedback_text("Refreshed file list.");
         Ok(())
     }
 
