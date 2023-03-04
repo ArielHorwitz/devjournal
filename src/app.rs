@@ -245,7 +245,7 @@ impl<'a> App<'a> {
         }
     }
 
-    fn save_file(&mut self, filename: Option<&str>) -> Result<(), io::Error> {
+    fn save_file(&mut self, filename: Option<&str>) -> io::Result<()> {
         if let Some(name) = filename {
             self.active_file = self.datadir.join(name);
         }
@@ -261,7 +261,7 @@ impl<'a> App<'a> {
         }
     }
 
-    fn load_file(&mut self, filename: Option<&str>) -> Result<(), io::Error> {
+    fn load_file(&mut self, filename: Option<&str>) -> io::Result<()> {
         if let Some(name) = filename {
             self.active_file = self.datadir.join(name);
         }
@@ -286,7 +286,7 @@ impl<'a> App<'a> {
         Ok(())
     }
 
-    fn print_file_list(&mut self) -> Result<(), io::Error> {
+    fn print_file_list(&mut self) -> io::Result<()> {
         let mut entries = fs::read_dir(&self.datadir)?
             .map(|res| {
                 res.map(|e| {
@@ -388,7 +388,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
     let datadir = AppDirs::new(Some("devboard"), false).unwrap().data_dir;
     fs::create_dir_all(&datadir).unwrap();
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
-    let mut app = App::new("Dev Board", datadir);
+    let mut app = App::new("DevBoard", datadir);
     app.print_file_list().unwrap();
     app.load_file(None).unwrap();
     app.set_feedback_text("Welcome to DevBoard.");
