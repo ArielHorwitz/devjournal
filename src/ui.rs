@@ -53,7 +53,11 @@ fn draw_main_content<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
         .constraints([Constraint::Ratio(1, 4), Constraint::Ratio(3, 4)])
         .split(chunk);
     let inner_chunks = Layout::default()
-        .constraints([Constraint::Min(5), Constraint::Min(2)])
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(chunk.height.max(2) - 2),
+            Constraint::Min(2),
+        ])
         .split(chunks[0]);
     widgets::draw_tasks(f, app, chunks[1]);
     widgets::draw_help(f, app, inner_chunks[0]);
