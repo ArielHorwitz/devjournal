@@ -10,10 +10,9 @@ use tui::{
 };
 
 pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
-    let spans: Vec<Spans> = app
-        .task_list
-        .iter()
-        .map(|t| Spans::from(format!("- {}", t.desc)))
+    let enumerated_tasks = (0..app.task_list.len()).zip(app.task_list.iter());
+    let spans: Vec<Spans> = enumerated_tasks
+        .map(|(i, t)| Spans::from(format!("{i}. {}", t.desc)))
         .collect();
     let block = Block::default()
         .title(Span::styled("Tasks", styles::title()))
