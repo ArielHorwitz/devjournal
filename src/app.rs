@@ -23,6 +23,7 @@ const LAST_TAB_INDEX: usize = 1;
 #[derive(Debug, Clone)]
 pub enum PromptHandler {
     AddTask,
+    RenameTask,
     SaveFile,
     LoadFile,
 }
@@ -130,6 +131,15 @@ impl<'a> App<'a> {
                 'j' => self.next_task(),
                 'k' => self.prev_task(),
                 'a' => self.prompt_handler = Some(PromptHandler::AddTask),
+                'r' => {
+                    self.prompt_handler = {
+                        if let Some(index) = self.task_selection.selected() {
+                            let text = self.task_list[index].desc.clone();
+                            self.set_prompt_text(&text);
+                        };
+                        Some(PromptHandler::RenameTask)
+                    }
+                }
                 'd' => {
                     if let Some(index) = self.task_selection.selected() {
                         self.remove_task(index);
@@ -147,7 +157,8 @@ impl<'a> App<'a> {
                 self.prompt_handler = None;
             }
             KeyCode::Enter => {
-                let prompt_text = self.get_prompt_text(true);
+                let prompt_text = self.get_prompt_text();
+                self.set_prompt_text("");
                 self.handle_prompt(handlerkind, &prompt_text);
                 self.prompt_handler = None;
             }
@@ -162,6 +173,11 @@ impl<'a> App<'a> {
     fn handle_prompt(&mut self, handlerkind: &PromptHandler, prompt_text: &str) {
         match handlerkind {
             PromptHandler::AddTask => self.add_task(prompt_text),
+            PromptHandler::RenameTask => {
+                if let Some(index) = self.task_selection.selected() {
+                    self.task_list[index].desc = prompt_text.to_string();
+                }
+            }
             PromptHandler::SaveFile => {
                 if let Err(e) = self.save_file(prompt_text) {
                     self.set_feedback_text(&e.to_string());
@@ -175,17 +191,18 @@ impl<'a> App<'a> {
         };
     }
 
-    fn get_prompt_text(&mut self, clear: bool) -> String {
-        let text = self.textarea.lines()[0].to_string();
-        if clear == true {
-            self.textarea.move_cursor(CursorMove::Top);
-            self.textarea.move_cursor(CursorMove::Head);
-            while self.textarea.lines().len() > 1 {
-                self.textarea.delete_line_by_end();
-            }
+    fn get_prompt_text(&mut self) -> String {
+        self.textarea.lines()[0].to_string()
+    }
+
+    fn set_prompt_text(&mut self, text: &str) {
+        self.textarea.move_cursor(CursorMove::Top);
+        self.textarea.move_cursor(CursorMove::Head);
+        while self.textarea.lines().len() > 1 {
             self.textarea.delete_line_by_end();
-        };
-        text
+        }
+        self.textarea.delete_line_by_end();
+        self.textarea.insert_str(text);
     }
 
     fn add_task(&mut self, desc: &str) {
