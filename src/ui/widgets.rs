@@ -36,11 +36,10 @@ pub fn draw_prompt<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let chunks = Layout::default()
         .constraints([Constraint::Max(1), Constraint::Max(1)])
         .split(chunk);
-    let style = match app.prompt_handler {
+    let text_style = match app.prompt_handler {
         Some(_) => styles::prompt(),
         None => styles::dim(),
     };
-    app.textarea.set_style(style);
     let cursor_style = match app.prompt_handler {
         Some(_) => Style::default().bg(Color::Magenta),
         None => Style::default().bg(Color::Black),
@@ -50,6 +49,7 @@ pub fn draw_prompt<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
         Some(handler) => prompt_text = format!("{}:", handler.to_string()),
         None => prompt_text = "".to_string(),
     }
+    app.textarea.set_cursor_line_style(text_style);
     app.textarea.set_cursor_style(cursor_style);
     f.render_widget(
         Paragraph::new(Spans::from(Span::styled(prompt_text, styles::highlight()))),
