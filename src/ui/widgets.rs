@@ -13,8 +13,7 @@ pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let list_items: Vec<ListItem> = app
         .task_list
         .iter()
-        .enumerate()
-        .map(|(i, t)| ListItem::new(format!("{i}. {}", t.desc)))
+        .map(|t| ListItem::new(t.desc.to_string()))
         .collect();
     let list = List::new(list_items)
         .style(styles::text())

@@ -6,8 +6,8 @@ pub fn dim() -> Style {
 
 pub fn highlight() -> Style {
     Style::default()
-        .bg(Color::LightBlue)
-        .fg(Color::Black)
+        .bg(Color::Rgb(28, 28, 52))
+        .fg(Color::White)
         .add_modifier(Modifier::BOLD)
 }
 
