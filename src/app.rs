@@ -8,11 +8,10 @@ use pathdiff::diff_paths;
 use platform_dirs::AppDirs;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fs::{self, remove_file};
 use std::io::{stdout, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::{
-    fs::File,
+    fs::{self, remove_file, File},
     io::{self, Read},
     time::{Duration, Instant},
 };
@@ -72,10 +71,11 @@ pub struct App<'a> {
 
 impl<'a> App<'a> {
     pub fn new(title: &'a str, datadir: PathBuf) -> App<'a> {
+        let active_file = get_default_file_path(&datadir).unwrap();
         let mut app = App {
             title,
             datadir: datadir.clone(),
-            active_file: Path::join(&datadir, "dev"),
+            active_file,
             should_quit: false,
             tab_index: 0,
             tick: 0,
@@ -255,13 +255,14 @@ impl<'a> App<'a> {
         }
         let filepath = self.active_file.clone();
         match bincode::serialize(&self.task_list) {
+            Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
             Ok(encoded) => {
                 let mut file = File::create(&filepath)?;
                 file.write_all(&encoded)?;
+                set_default_file_path(&self.datadir, filepath.to_str().unwrap())?;
                 self.set_feedback_text(&format!("Saved file: {}", filepath.to_str().unwrap()));
                 Ok(())
             }
-            Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
         }
     }
 
@@ -273,12 +274,12 @@ impl<'a> App<'a> {
         let mut encoded: Vec<u8> = Vec::new();
         File::open(&filepath)?.read_to_end(&mut encoded)?;
         match bincode::deserialize(encoded.as_slice()) {
+            Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
             Ok(decoded) => {
                 self.task_list = decoded;
                 self.set_feedback_text(&format!("Loaded file: {}", filepath.to_str().unwrap()));
                 return Ok(());
             }
-            Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
         }
     }
 
@@ -384,6 +385,31 @@ impl<'a> App<'a> {
             self.tab_index += LAST_TAB_INDEX;
         } else {
             self.tab_index = 0;
+        }
+    }
+}
+
+fn set_default_file_path(datadir: &Path, file_name: &str) -> io::Result<()> {
+    fs::write(Path::join(&datadir, ".config"), file_name)?;
+    Ok(())
+}
+
+fn get_default_file_path(datadir: &Path) -> io::Result<PathBuf> {
+    let config_path = Path::join(&datadir, ".config");
+    if config_path.exists() == false {
+        File::create(&config_path)?;
+    };
+    let mut encoded: Vec<u8> = Vec::new();
+    File::open(&config_path)?.read_to_end(&mut encoded)?;
+    match String::from_utf8(encoded) {
+        Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e)),
+        Ok(filepath) => {
+            let path = Path::new(&filepath).to_path_buf();
+            if filepath == "" || path.ends_with(".config") || path.is_dir() {
+                Ok(datadir.join("dev"))
+            } else {
+                Ok(path)
+            }
         }
     }
 }
