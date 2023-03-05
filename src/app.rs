@@ -316,6 +316,10 @@ impl<'a> App<'a> {
                         .to_string()
                 })
             })
+            .filter(|x| match x {
+                Err(_) => false,
+                Ok(s) => !s.ends_with(".config"),
+            })
             .collect::<Result<Vec<_>, io::Error>>()?;
         entries.sort();
         self.help_text = format!("Available files:\n{}", entries.join("\n"));
