@@ -18,7 +18,7 @@ pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let list = List::new(list_items)
         .style(styles::text())
         .highlight_style(styles::highlight())
-        .highlight_symbol(">> ")
+        .highlight_symbol("> ")
         .block(
             Block::default()
                 .title(Span::styled("Tasks", styles::title()))
