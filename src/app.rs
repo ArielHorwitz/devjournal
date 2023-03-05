@@ -272,7 +272,7 @@ impl<'a> App<'a> {
             Ok(encoded) => {
                 let mut file = File::create(&filepath)?;
                 file.write_all(&encoded)?;
-                set_default_file_path(&self.datadir, filepath.to_str().unwrap())?;
+                set_default_file_path(&self.datadir, &self.active_file.to_str().unwrap())?;
                 self.set_feedback_text(&format!("Saved file: {}", self.get_active_filename()));
                 Ok(())
             }
@@ -289,6 +289,7 @@ impl<'a> App<'a> {
         match bincode::deserialize(encoded.as_slice()) {
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
             Ok(decoded) => {
+                set_default_file_path(&self.datadir, &self.active_file.to_str().unwrap())?;
                 self.task_list = decoded;
                 self.set_feedback_text(&format!("Loaded file: {}", self.get_active_filename()));
                 return Ok(());
@@ -402,8 +403,8 @@ impl<'a> App<'a> {
     }
 }
 
-fn set_default_file_path(datadir: &Path, file_name: &str) -> io::Result<()> {
-    fs::write(Path::join(&datadir, ".config"), file_name)?;
+fn set_default_file_path(datadir: &Path, default_file_path: &str) -> io::Result<()> {
+    fs::write(Path::join(&datadir, ".config"), default_file_path)?;
     Ok(())
 }
 
