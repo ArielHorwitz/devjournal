@@ -75,7 +75,7 @@ impl<'a> App<'a> {
         let mut app = App {
             title,
             datadir: datadir.clone(),
-            active_file,
+            active_file: active_file.clone(),
             should_quit: false,
             tab_index: 0,
             tick: 0,
@@ -86,6 +86,7 @@ impl<'a> App<'a> {
             task_list: Vec::new(),
             task_selection: ListState::default(),
         };
+        app.set_active_file(active_file);
         app.print_file_list().unwrap();
         app.load_file(None).unwrap();
         app.set_feedback_text(&format!("Welcome to {title}"));
@@ -98,7 +99,19 @@ impl<'a> App<'a> {
 
     pub fn on_tick(&mut self) {
         self.tick += 1;
-        let title = format!("{} - {}", self.title, self.active_file.to_str().unwrap());
+    }
+
+    fn get_active_filename(&self) -> String {
+        diff_paths(&self.active_file, &self.datadir)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
+    fn set_active_file(&mut self, active_file: PathBuf) {
+        self.active_file = active_file;
+        let title = format!("{} - {}", self.title, self.get_active_filename());
         crossterm::queue!(stdout(), SetTitle(title)).unwrap_or(());
     }
 
@@ -251,7 +264,7 @@ impl<'a> App<'a> {
 
     fn save_file(&mut self, filename: Option<&str>) -> io::Result<()> {
         if let Some(name) = filename {
-            self.active_file = self.datadir.join(name);
+            self.set_active_file(self.datadir.join(name));
         }
         let filepath = self.active_file.clone();
         match bincode::serialize(&self.task_list) {
@@ -260,7 +273,7 @@ impl<'a> App<'a> {
                 let mut file = File::create(&filepath)?;
                 file.write_all(&encoded)?;
                 set_default_file_path(&self.datadir, filepath.to_str().unwrap())?;
-                self.set_feedback_text(&format!("Saved file: {}", filepath.to_str().unwrap()));
+                self.set_feedback_text(&format!("Saved file: {}", self.get_active_filename()));
                 Ok(())
             }
         }
@@ -268,7 +281,7 @@ impl<'a> App<'a> {
 
     fn load_file(&mut self, filename: Option<&str>) -> io::Result<()> {
         if let Some(name) = filename {
-            self.active_file = self.datadir.join(name);
+            self.set_active_file(self.datadir.join(name));
         }
         let filepath = self.active_file.clone();
         let mut encoded: Vec<u8> = Vec::new();
@@ -277,7 +290,7 @@ impl<'a> App<'a> {
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
             Ok(decoded) => {
                 self.task_list = decoded;
-                self.set_feedback_text(&format!("Loaded file: {}", filepath.to_str().unwrap()));
+                self.set_feedback_text(&format!("Loaded file: {}", self.get_active_filename()));
                 return Ok(());
             }
         }
