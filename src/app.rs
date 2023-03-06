@@ -88,7 +88,7 @@ impl<'a> App<'a> {
         };
         app.set_active_file(active_file);
         app.print_file_list().unwrap();
-        app.load_file(None).unwrap();
+        app.load_file(None).unwrap_or(());
         app.set_feedback_text(&format!("Welcome to {title}"));
         app
     }
@@ -266,13 +266,14 @@ impl<'a> App<'a> {
         if let Some(name) = filename {
             self.set_active_file(self.datadir.join(name));
         }
+        set_default_file_path(&self.datadir, &self.active_file.to_str().unwrap())?;
         let filepath = self.active_file.clone();
         match bincode::serialize(&self.task_list) {
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
             Ok(encoded) => {
                 let mut file = File::create(&filepath)?;
                 file.write_all(&encoded)?;
-                set_default_file_path(&self.datadir, &self.active_file.to_str().unwrap())?;
+                self.print_file_list().unwrap_or(());
                 self.set_feedback_text(&format!("Saved file: {}", self.get_active_filename()));
                 Ok(())
             }
@@ -283,13 +284,13 @@ impl<'a> App<'a> {
         if let Some(name) = filename {
             self.set_active_file(self.datadir.join(name));
         }
+        set_default_file_path(&self.datadir, &self.active_file.to_str().unwrap())?;
         let filepath = self.active_file.clone();
         let mut encoded: Vec<u8> = Vec::new();
         File::open(&filepath)?.read_to_end(&mut encoded)?;
         match bincode::deserialize(encoded.as_slice()) {
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
             Ok(decoded) => {
-                set_default_file_path(&self.datadir, &self.active_file.to_str().unwrap())?;
                 self.task_list = decoded;
                 self.set_feedback_text(&format!("Loaded file: {}", self.get_active_filename()));
                 return Ok(());
