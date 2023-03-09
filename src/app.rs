@@ -20,6 +20,10 @@ use tui_textarea::{CursorMove, TextArea};
 
 const TICK_RATE_MS: u64 = 25;
 const LAST_TAB_INDEX: usize = 1;
+const CREATE_CHAR: char = '⁕';
+const LOAD_CHAR: char = '★';
+const SAVE_CHAR: char = '☑';
+const DELETE_CHAR: char = '☒';
 
 #[derive(Clone, Debug)]
 pub enum PromptHandler {
@@ -266,7 +270,10 @@ impl<'a> App<'a> {
                 let mut file = File::create(&filepath)?;
                 file.write_all(&encoded)?;
                 self.print_file_list().unwrap_or(());
-                self.set_feedback_text(&format!("Saved file: {}", self.get_active_filename()));
+                self.set_feedback_text(&format!(
+                    "{SAVE_CHAR} Saved file: {}",
+                    self.get_active_filename()
+                ));
                 Ok(())
             }
         }
@@ -277,8 +284,10 @@ impl<'a> App<'a> {
             self.set_active_file(self.datadir.join(name));
         }
         set_default_file_path(&self.datadir, self.active_file.to_str().unwrap())?;
+        let mut action_name = format!("{LOAD_CHAR} Loaded");
         if !self.active_file.exists() {
             create_file(self.active_file.to_str().unwrap()).unwrap();
+            action_name = format!("{CREATE_CHAR} Created");
         }
         let mut encoded: Vec<u8> = Vec::new();
         File::open(&self.active_file)?.read_to_end(&mut encoded)?;
@@ -287,7 +296,10 @@ impl<'a> App<'a> {
             Ok(decoded) => {
                 self.task_list = decoded;
                 self.task_list.deselect();
-                self.set_feedback_text(&format!("Loaded file: {}", self.get_active_filename()));
+                self.set_feedback_text(&format!(
+                    "{action_name} file: {}",
+                    self.get_active_filename()
+                ));
                 self.print_file_list().unwrap();
                 return Ok(());
             }
@@ -297,7 +309,12 @@ impl<'a> App<'a> {
     fn delete_file(&mut self, filename: &str) -> io::Result<()> {
         let filepath = self.datadir.join(filename);
         remove_file(&filepath)?;
-        self.set_feedback_text(&format!("Deleted file: {}", filepath.to_str().unwrap()));
+        let relative_filepath = diff_paths(filepath.to_str().unwrap(), &self.datadir)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        self.set_feedback_text(&format!("{DELETE_CHAR} Deleted file: {relative_filepath}"));
         self.print_file_list()?;
         Ok(())
     }
