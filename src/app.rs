@@ -1,5 +1,5 @@
 /// App state and logic
-use crate::ui;
+use crate::ui::{self, widgets::list::List};
 use crossterm::{
     event::{Event, KeyCode, KeyEvent, KeyModifiers},
     terminal::SetTitle,
@@ -15,14 +15,13 @@ use std::{
     io::{self, Read},
     time::{Duration, Instant},
 };
-use tui::widgets::ListState;
 use tui::{backend::Backend, Terminal};
 use tui_textarea::{CursorMove, TextArea};
 
 const TICK_RATE_MS: u64 = 25;
 const LAST_TAB_INDEX: usize = 1;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum PromptHandler {
     AddTask,
     RenameTask,
@@ -54,6 +53,12 @@ impl Task {
     }
 }
 
+impl fmt::Display for Task {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&format!("{}", self.desc))
+    }
+}
+
 pub struct App<'a> {
     pub title: &'a str,
     pub datadir: PathBuf,
@@ -64,8 +69,7 @@ pub struct App<'a> {
     pub prompt_handler: Option<PromptHandler>,
     pub user_feedback_text: String,
     pub help_text: String,
-    pub task_list: Vec<Task>,
-    pub task_selection: ListState,
+    pub task_list: List<Task>,
     pub active_file: PathBuf,
 }
 
@@ -83,8 +87,7 @@ impl<'a> App<'a> {
             prompt_handler: None,
             user_feedback_text: "".to_string(),
             help_text: "".to_string(),
-            task_list: Vec::new(),
-            task_selection: ListState::default(),
+            task_list: List::default(),
         };
         app.set_active_file(active_file);
         app.load_file(None).unwrap_or(());
@@ -101,7 +104,7 @@ impl<'a> App<'a> {
         self.tick += 1;
     }
 
-    fn get_active_filename(&self) -> String {
+    pub fn get_active_filename(&self) -> String {
         diff_paths(&self.active_file, &self.datadir)
             .unwrap()
             .to_str()
@@ -130,9 +133,9 @@ impl<'a> App<'a> {
 
     fn handle_event_normal(&mut self, key: KeyEvent) {
         match (key.code, key.modifiers) {
-            (KeyCode::Esc, _) => self.task_selection.select(None),
-            (KeyCode::Up, _) => self.prev_task(),
-            (KeyCode::Down, _) => self.next_task(),
+            (KeyCode::Esc, _) => self.task_list.deselect(),
+            (KeyCode::Up, _) => self.task_list.select_prev(),
+            (KeyCode::Down, _) => self.task_list.select_next(),
             (KeyCode::Tab, _) => self.increment_tab(),
             (KeyCode::BackTab, _) => self.decrement_tab(),
             (KeyCode::F(5), _) => {
@@ -142,7 +145,7 @@ impl<'a> App<'a> {
                 };
             }
             (KeyCode::Delete, _) => {
-                self.task_list = Vec::new();
+                self.task_list = List::default();
             }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                 if let Err(e) = self.save_file(None) {
@@ -158,25 +161,26 @@ impl<'a> App<'a> {
             (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
                 self.prompt_handler = Some(PromptHandler::DeleteFile);
             }
-            (KeyCode::Char('j'), KeyModifiers::CONTROL) => self.move_task_next(),
-            (KeyCode::Char('k'), KeyModifiers::CONTROL) => self.move_task_prev(),
+            (KeyCode::Char('j'), KeyModifiers::CONTROL) => {
+                self.task_list.move_down().unwrap_or(());
+            }
+            (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
+                self.task_list.move_up().unwrap_or(());
+            }
             (KeyCode::Char(c), KeyModifiers::NONE) => match c {
                 'q' => self.should_quit = true,
-                'j' => self.next_task(),
-                'k' => self.prev_task(),
+                'j' => self.task_list.select_next(),
+                'k' => self.task_list.select_prev(),
                 'a' => self.prompt_handler = Some(PromptHandler::AddTask),
-                'r' => {
-                    self.prompt_handler = {
-                        if let Some(index) = self.task_selection.selected() {
-                            let text = self.task_list[index].desc.clone();
-                            self.set_prompt_text(&text);
-                        };
-                        Some(PromptHandler::RenameTask)
+                'd' => {
+                    if let Some(desc) = self.task_list.pop_selected() {
+                        self.set_feedback_text(&format!("Deleted task: {}", desc));
                     }
                 }
-                'd' => {
-                    if let Some(index) = self.task_selection.selected() {
-                        self.remove_task(index);
+                'r' => {
+                    if let Some(text) = self.task_list.selected_value() {
+                        self.set_prompt_text(&text.to_string());
+                        self.prompt_handler = Some(PromptHandler::RenameTask);
                     }
                 }
                 _ => (),
@@ -206,11 +210,12 @@ impl<'a> App<'a> {
 
     fn handle_prompt(&mut self, handlerkind: &PromptHandler, prompt_text: &str) {
         match handlerkind {
-            PromptHandler::AddTask => self.add_task(prompt_text),
+            PromptHandler::AddTask => {
+                self.task_list.add_item(Task::new(prompt_text));
+                self.set_feedback_text(&format!("Added task: {prompt_text}"));
+            }
             PromptHandler::RenameTask => {
-                if let Some(index) = self.task_selection.selected() {
-                    self.task_list[index].desc = prompt_text.to_string();
-                }
+                self.task_list.replace_selected(Task::new(prompt_text));
             }
             PromptHandler::SaveFile => {
                 match self.save_file(Some(prompt_text)) {
@@ -249,19 +254,6 @@ impl<'a> App<'a> {
         self.textarea.insert_str(text);
     }
 
-    fn add_task(&mut self, desc: &str) {
-        self.task_list.push(Task::new(desc));
-        self.set_feedback_text(&format!("Added task: {desc}"));
-    }
-
-    fn remove_task(&mut self, index: usize) {
-        if index < self.task_list.len() {
-            let desc = self.task_list.get(index.clone()).unwrap().desc.clone();
-            self.task_list.remove(index);
-            self.set_feedback_text(&format!("Deleted task: {}", desc));
-        }
-    }
-
     fn save_file(&mut self, filename: Option<&str>) -> io::Result<()> {
         if let Some(name) = filename {
             self.set_active_file(self.datadir.join(name));
@@ -294,6 +286,7 @@ impl<'a> App<'a> {
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
             Ok(decoded) => {
                 self.task_list = decoded;
+                self.task_list.deselect();
                 self.set_feedback_text(&format!("Loaded file: {}", self.get_active_filename()));
                 self.print_file_list().unwrap();
                 return Ok(());
@@ -330,70 +323,6 @@ impl<'a> App<'a> {
         Ok(())
     }
 
-    fn get_next_task(&self) -> usize {
-        match self.task_selection.selected() {
-            Some(selected) => {
-                if selected >= self.task_list.len() - 1 {
-                    0
-                } else {
-                    selected + 1
-                }
-            }
-            None => 0,
-        }
-    }
-
-    fn get_prev_task(&self) -> usize {
-        match self.task_selection.selected() {
-            Some(selected) => {
-                if selected == 0 {
-                    self.task_list.len() - 1
-                } else {
-                    selected - 1
-                }
-            }
-            None => self.task_list.len().max(1) - 1,
-        }
-    }
-
-    fn get_task_index(&self) -> usize {
-        match self.task_selection.selected() {
-            Some(selected) => selected,
-            None => 0,
-        }
-    }
-
-    fn next_task(&mut self) {
-        self.task_selection.select(Some(self.get_next_task()))
-    }
-
-    fn prev_task(&mut self) {
-        self.task_selection.select(Some(self.get_prev_task()))
-    }
-
-    fn move_task_next(&mut self) {
-        let index = self.get_task_index();
-        if index < self.task_list.len() - 1 {
-            self.task_list.swap(index, index + 1);
-        } else {
-            let element = self.task_list.remove(index);
-            self.task_list.insert(0, element);
-        }
-        self.next_task();
-    }
-
-    fn move_task_prev(&mut self) {
-        let index = self.get_task_index();
-        if index > 0 {
-            self.task_list.swap(index, index - 1);
-        } else {
-            let last = self.task_list.len() - 1;
-            let element = self.task_list.remove(index);
-            self.task_list.insert(last, element);
-        }
-        self.prev_task();
-    }
-
     fn decrement_tab(&mut self) {
         if self.tab_index > 0 {
             self.tab_index -= 1;
@@ -412,7 +341,7 @@ impl<'a> App<'a> {
 }
 
 fn create_file(filepath: &str) -> io::Result<()> {
-    let empty_data: Vec<Task> = Vec::new();
+    let empty_data: List<Task> = List::default();
     match bincode::serialize(&empty_data) {
         Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
         Ok(encoded) => {

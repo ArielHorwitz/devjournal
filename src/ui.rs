@@ -1,6 +1,6 @@
 use crate::app::App;
 mod styles;
-mod widgets;
+pub mod widgets;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},

@@ -5,27 +5,25 @@ use tui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
+pub mod list;
 
 pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let list_items: Vec<ListItem> = app
+    let title = format!("Tasks - {}", app.get_active_filename());
+    let test = app
         .task_list
-        .iter()
-        .map(|t| ListItem::new(t.desc.to_string()))
-        .collect();
-    let list = List::new(list_items)
-        .style(styles::text())
-        .highlight_style(styles::highlight())
-        .highlight_symbol("> ")
+        .widget()
         .block(
             Block::default()
-                .title(Span::styled("Tasks", styles::title()))
+                .title(Span::styled(title, styles::title()))
                 .borders(Borders::ALL)
                 .border_style(styles::border()),
-        );
-    f.render_stateful_widget(list, chunk, &mut app.task_selection);
+        )
+        .style(styles::list_normal())
+        .highlight_style(styles::list_highlight());
+    f.render_widget(test, chunk);
 }
 
 pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {

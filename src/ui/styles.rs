@@ -1,5 +1,16 @@
 use tui::style::{Color, Modifier, Style};
 
+pub fn list_normal() -> Style {
+    Style::default()
+}
+
+pub fn list_highlight() -> Style {
+    Style::default()
+        .bg(Color::Rgb(20, 20, 48))
+        .fg(Color::White)
+        .add_modifier(Modifier::BOLD)
+}
+
 pub fn dim() -> Style {
     Style::default().fg(Color::DarkGray)
 }
