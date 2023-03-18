@@ -65,40 +65,41 @@ impl fmt::Display for Task {
 
 pub struct App<'a> {
     pub title: &'a str,
-    pub datadir: PathBuf,
-    pub should_quit: bool,
+    datadir: PathBuf,
+    quit_flag: bool,
     pub tab_index: usize,
-    pub tick: i32,
+    tick: i32,
     pub textarea: TextArea<'a>,
     pub prompt_handler: Option<PromptHandler>,
     pub user_feedback_text: String,
     pub help_text: String,
     pub file_list: List<Task>,
     pub task_list: List<Task>,
-    pub active_file: PathBuf,
+    active_file: PathBuf,
 }
 
 impl<'a> App<'a> {
     pub fn new(title: &'a str, datadir: PathBuf) -> App<'a> {
+        let welcome = format!("Welcome to {title}.");
         let active_file = get_default_file_path(&datadir).unwrap();
         let mut app = App {
             title,
-            datadir: datadir.clone(),
-            active_file: active_file.clone(),
-            should_quit: false,
+            datadir,
+            quit_flag: false,
             tab_index: 0,
             tick: 0,
             textarea: TextArea::default(),
             prompt_handler: None,
             user_feedback_text: "".to_string(),
-            help_text: "".to_string(),
-            task_list: List::default(),
+            help_text: welcome.clone(),
             file_list: List::default(),
+            task_list: List::default(),
+            active_file: active_file.clone(),
         };
         app.set_active_file(active_file);
         app.load_file(None).unwrap_or(());
-        app.print_file_list().unwrap();
-        app.set_feedback_text(&format!("Welcome to {title}"));
+        app.refresh_file_list().unwrap();
+        app.set_feedback_text(&welcome);
         app
     }
 
@@ -145,7 +146,7 @@ impl<'a> App<'a> {
             (KeyCode::Tab, _) => self.increment_tab(),
             (KeyCode::BackTab, _) => self.decrement_tab(),
             (KeyCode::F(5), _) => {
-                match self.print_file_list() {
+                match self.refresh_file_list() {
                     Ok(_) => self.set_feedback_text("Refreshed file list."),
                     Err(e) => self.set_feedback_text(&e.to_string()),
                 };
@@ -177,7 +178,7 @@ impl<'a> App<'a> {
                 self.open_datadir();
             }
             (KeyCode::Char(c), KeyModifiers::NONE) => match c {
-                'q' => self.should_quit = true,
+                'q' => self.quit_flag = true,
                 'j' => self.task_list.select_next(),
                 'k' => self.task_list.select_prev(),
                 'a' => self.prompt_handler = Some(PromptHandler::AddTask),
@@ -229,7 +230,7 @@ impl<'a> App<'a> {
             PromptHandler::SaveFile => {
                 match self.save_file(Some(prompt_text)) {
                     Ok(_) => {
-                        if let Err(e) = self.print_file_list() {
+                        if let Err(e) = self.refresh_file_list() {
                             self.set_feedback_text(&e.to_string());
                         };
                     }
@@ -274,7 +275,7 @@ impl<'a> App<'a> {
             Ok(encoded) => {
                 let mut file = File::create(&filepath)?;
                 file.write_all(&encoded)?;
-                self.print_file_list().unwrap_or(());
+                self.refresh_file_list().unwrap_or(());
                 self.set_feedback_text(&format!(
                     "{SAVE_CHAR} Saved file: {}",
                     self.get_active_filename()
@@ -305,7 +306,7 @@ impl<'a> App<'a> {
                     "{action_name} file: {}",
                     self.get_active_filename()
                 ));
-                self.print_file_list().unwrap();
+                self.refresh_file_list().unwrap();
                 return Ok(());
             }
         }
@@ -320,11 +321,11 @@ impl<'a> App<'a> {
             .unwrap()
             .to_string();
         self.set_feedback_text(&format!("{DELETE_CHAR} Deleted file: {relative_filepath}"));
-        self.print_file_list()?;
+        self.refresh_file_list()?;
         Ok(())
     }
 
-    fn print_file_list(&mut self) -> io::Result<()> {
+    fn refresh_file_list(&mut self) -> io::Result<()> {
         let mut entries = fs::read_dir(&self.datadir)?
             .map(|res| {
                 res.map(|e| {
@@ -341,7 +342,6 @@ impl<'a> App<'a> {
             })
             .collect::<Result<Vec<_>, io::Error>>()?;
         entries.sort();
-        self.help_text = format!("Available files:\n{}", entries.join("\n"));
         self.file_list.clear_items();
         entries
             .iter()
@@ -424,7 +424,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
             app.on_tick();
             last_tick = Instant::now();
         }
-        if app.should_quit {
+        if app.quit_flag {
             return Ok(());
         }
     }
