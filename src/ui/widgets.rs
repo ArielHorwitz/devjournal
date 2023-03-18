@@ -2,7 +2,7 @@ use super::styles;
 use crate::app::App;
 use tui::{
     backend::Backend,
-    layout::{Constraint, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, Paragraph, Wrap},
@@ -26,14 +26,32 @@ pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     f.render_widget(test, chunk);
 }
 
-pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
+pub fn draw_sidebar<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(10), Constraint::Percentage(100)])
+        .split(chunk);
+    // File list
+    let file_list = app
+        .file_list
+        .widget()
+        .block(
+            Block::default()
+                .title(Span::styled("Files", styles::title()))
+                .borders(Borders::ALL)
+                .border_style(styles::border()),
+        )
+        .style(styles::list_normal())
+        .highlight_style(styles::list_highlight());
+    f.render_widget(file_list, chunks[0]);
+    // Help text
     let spans = multiline_to_spans(&app.help_text);
     let block = Block::default()
         .title(Span::styled("Help", styles::title()))
         .borders(Borders::ALL)
         .border_style(styles::border());
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
-    f.render_widget(paragraph, chunk);
+    f.render_widget(paragraph, chunks[1]);
 }
 
 pub fn draw_prompt<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {

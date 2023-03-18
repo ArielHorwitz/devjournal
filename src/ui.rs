@@ -60,7 +60,7 @@ fn draw_main_content<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
         ])
         .split(chunks[0]);
     widgets::draw_tasks(f, app, chunks[1]);
-    widgets::draw_help(f, app, inner_chunks[0]);
+    widgets::draw_sidebar(f, app, inner_chunks[0]);
     widgets::draw_prompt(f, app, inner_chunks[1]);
 }
 

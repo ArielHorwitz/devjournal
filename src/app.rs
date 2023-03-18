@@ -73,6 +73,7 @@ pub struct App<'a> {
     pub prompt_handler: Option<PromptHandler>,
     pub user_feedback_text: String,
     pub help_text: String,
+    pub file_list: List<Task>,
     pub task_list: List<Task>,
     pub active_file: PathBuf,
 }
@@ -92,6 +93,7 @@ impl<'a> App<'a> {
             user_feedback_text: "".to_string(),
             help_text: "".to_string(),
             task_list: List::default(),
+            file_list: List::default(),
         };
         app.set_active_file(active_file);
         app.load_file(None).unwrap_or(());
@@ -340,6 +342,11 @@ impl<'a> App<'a> {
             .collect::<Result<Vec<_>, io::Error>>()?;
         entries.sort();
         self.help_text = format!("Available files:\n{}", entries.join("\n"));
+        self.file_list.clear_items();
+        entries
+            .iter()
+            .map(|e| self.file_list.add_item(Task::new(e)))
+            .last();
         Ok(())
     }
 
