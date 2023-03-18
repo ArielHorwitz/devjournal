@@ -7,12 +7,12 @@ use crossterm::{
 use pathdiff::diff_paths;
 use platform_dirs::AppDirs;
 use serde::{Deserialize, Serialize};
-use std::io::{stdout, ErrorKind, Write};
-use std::path::{Path, PathBuf};
-use std::{fmt, process::Command};
 use std::{
+    fmt,
     fs::{self, remove_file, File},
-    io::{self, Read},
+    io::{self, stdout, ErrorKind, Read, Write},
+    path::{Path, PathBuf},
+    process::Command,
     time::{Duration, Instant},
 };
 use tui::{backend::Backend, Terminal};
