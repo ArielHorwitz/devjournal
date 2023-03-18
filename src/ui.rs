@@ -10,13 +10,28 @@ use tui::{
     Frame,
 };
 
+fn center_rect(width: u16, height: u16, chunk: Rect) -> Rect {
+    Rect::new(
+        chunk
+            .x
+            .saturating_add(1)
+            .max((chunk.width.saturating_sub(width)) / 2),
+        chunk
+            .y
+            .saturating_add(1)
+            .max((chunk.height.saturating_sub(height)) / 2),
+        width.min(chunk.width.saturating_sub(2)),
+        height.min(chunk.height.saturating_sub(2)),
+    )
+}
+
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let chunks = Layout::default()
         .constraints(
             [
-                Constraint::Length(3), // Tab bar
-                Constraint::Min(0),    // Tab content
-                Constraint::Length(2), // Status bar
+                Constraint::Length(3),                                 // Tab bar
+                Constraint::Length(f.size().height.saturating_sub(5)), // Tab content
+                Constraint::Length(2),                                 // Status bar
             ]
             .as_ref(),
         )
@@ -28,6 +43,14 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         _ => {}
     };
     widgets::draw_feedback_text(f, app, chunks[2]);
+    if let crate::app::AppFocus::Prompt(handler) = app.focus {
+        widgets::draw_prompt(
+            f,
+            app,
+            center_rect(80, 3, chunks[1]),
+            &format!("{}:", handler.to_string()),
+        );
+    };
 }
 
 fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
@@ -52,16 +75,8 @@ fn draw_main_content<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Ratio(1, 4), Constraint::Ratio(3, 4)])
         .split(chunk);
-    let inner_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(chunk.height.max(2) - 2),
-            Constraint::Min(2),
-        ])
-        .split(chunks[0]);
+    widgets::draw_sidebar(f, app, chunks[0]);
     widgets::draw_tasks(f, app, chunks[1]);
-    widgets::draw_sidebar(f, app, inner_chunks[0]);
-    widgets::draw_prompt(f, app, inner_chunks[1]);
 }
 
 pub fn draw_debug_tab<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)

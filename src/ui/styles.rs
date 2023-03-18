@@ -41,7 +41,7 @@ pub fn border() -> Style {
 }
 
 pub fn border_highlighted() -> Style {
-    Style::default().fg(Color::Rgb(92, 0, 92))
+    Style::default().fg(Color::Rgb(110, 0, 110))
 }
 
 pub fn text() -> Style {

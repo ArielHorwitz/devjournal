@@ -5,7 +5,7 @@ use tui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame,
 };
 pub mod list;
@@ -84,32 +84,18 @@ pub fn draw_sidebar<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
     f.render_widget(paragraph, chunks[1]);
 }
 
-pub fn draw_prompt<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let chunks = Layout::default()
-        .constraints([Constraint::Max(1), Constraint::Max(1)])
-        .split(chunk);
-    let text_style: Style;
-    let cursor_style: Style;
-    let prompt_text: String;
-    match app.focus {
-        AppFocus::Prompt(handler) => {
-            text_style = styles::prompt();
-            cursor_style = Style::default().bg(Color::Magenta);
-            prompt_text = format!("{}:", handler.to_string());
-        }
-        _ => {
-            text_style = styles::dim();
-            cursor_style = Style::default().bg(Color::Black);
-            prompt_text = "".to_string();
-        }
-    };
-    app.textarea.set_cursor_line_style(text_style);
-    app.textarea.set_cursor_style(cursor_style);
-    f.render_widget(
-        Paragraph::new(Spans::from(Span::styled(prompt_text, styles::highlight()))),
-        chunks[0],
-    );
-    f.render_widget(app.textarea.widget(), chunks[1])
+pub fn draw_prompt<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect, prompt_text: &str) {
+    f.render_widget(Clear, chunk);
+    app.textarea.set_cursor_line_style(styles::prompt());
+    app.textarea
+        .set_cursor_style(Style::default().bg(Color::Magenta));
+    let block = Block::default()
+        .title(Span::styled(prompt_text, styles::highlight()))
+        .borders(Borders::ALL)
+        .border_style(styles::border_highlighted());
+    let inner = block.inner(chunk);
+    f.render_widget(block, chunk);
+    f.render_widget(app.textarea.widget(), inner)
 }
 
 pub fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
