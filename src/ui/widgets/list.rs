@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde::{Deserialize, Serialize};
 use tui::{
     buffer::Buffer,
@@ -148,6 +149,26 @@ where
             self.items.iter().map(|x| x.to_string()).collect(),
             self.selection,
         )
+    }
+
+    pub fn handle_event(&mut self, key: KeyEvent) -> Result<(), ()> {
+        match (key.code, key.modifiers) {
+            (KeyCode::Esc, _) => self.deselect(),
+            (KeyCode::Up, KeyModifiers::NONE) => self.select_prev(),
+            (KeyCode::Down, KeyModifiers::NONE) => self.select_next(),
+            (KeyCode::Up, KeyModifiers::CONTROL) => self.move_up().unwrap_or(()),
+            (KeyCode::Down, KeyModifiers::CONTROL) => self.move_down().unwrap_or(()),
+            (KeyCode::Char('k'), KeyModifiers::NONE) => self.select_prev(),
+            (KeyCode::Char('j'), KeyModifiers::NONE) => self.select_next(),
+            (KeyCode::Char('k'), KeyModifiers::CONTROL) => self.move_up().unwrap_or(()),
+            (KeyCode::Char('j'), KeyModifiers::CONTROL) => self.move_down().unwrap_or(()),
+            (KeyCode::Delete, KeyModifiers::NONE) => {
+                self.pop_selected();
+            }
+            (KeyCode::Delete, KeyModifiers::CONTROL) => self.clear_items(),
+            _ => return Err(()),
+        };
+        Ok(())
     }
 }
 

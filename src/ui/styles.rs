@@ -6,7 +6,7 @@ pub fn list_normal() -> Style {
 
 pub fn list_highlight() -> Style {
     Style::default()
-        .bg(Color::Rgb(20, 20, 48))
+        .bg(Color::Rgb(48, 12, 48))
         .fg(Color::White)
         .add_modifier(Modifier::BOLD)
 }
@@ -40,12 +40,22 @@ pub fn border() -> Style {
     Style::default().fg(Color::DarkGray)
 }
 
+pub fn border_highlighted() -> Style {
+    Style::default().fg(Color::Rgb(92, 0, 92))
+}
+
 pub fn text() -> Style {
     Style::default().fg(Color::White)
 }
 
 pub fn title() -> Style {
     Style::default()
-        .fg(Color::Green)
+        .fg(Color::Rgb(64, 152, 64))
         .add_modifier(Modifier::BOLD)
+}
+
+pub fn title_highlighted() -> Style {
+    Style::default()
+        .fg(Color::Rgb(48, 255, 48))
+        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
 }

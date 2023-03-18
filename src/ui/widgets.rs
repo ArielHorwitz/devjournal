@@ -1,5 +1,5 @@
 use super::styles;
-use crate::app::App;
+use crate::app::{App, AppFocus};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -12,17 +12,32 @@ pub mod list;
 
 pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let title = format!("Tasks - {}", app.get_active_filename());
+    let border_style: Style;
+    let title_style: Style;
+    let highlight_style: Style;
+    match app.focus {
+        AppFocus::TaskList => {
+            border_style = styles::border_highlighted();
+            title_style = styles::title_highlighted();
+            highlight_style = styles::list_highlight();
+        }
+        _ => {
+            border_style = styles::border();
+            title_style = styles::title();
+            highlight_style = styles::list_normal();
+        }
+    };
     let test = app
         .task_list
         .widget()
         .block(
             Block::default()
-                .title(Span::styled(title, styles::title()))
+                .title(Span::styled(title, title_style))
                 .borders(Borders::ALL)
-                .border_style(styles::border()),
+                .border_style(border_style),
         )
         .style(styles::list_normal())
-        .highlight_style(styles::list_highlight());
+        .highlight_style(highlight_style);
     f.render_widget(test, chunk);
 }
 
@@ -32,17 +47,32 @@ pub fn draw_sidebar<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
         .constraints([Constraint::Min(10), Constraint::Percentage(100)])
         .split(chunk);
     // File list
+    let border_style: Style;
+    let title_style: Style;
+    let highlight_style: Style;
+    match app.focus {
+        AppFocus::FileList => {
+            border_style = styles::border_highlighted();
+            title_style = styles::title_highlighted();
+            highlight_style = styles::list_highlight();
+        }
+        _ => {
+            border_style = styles::border();
+            title_style = styles::title();
+            highlight_style = styles::list_normal();
+        }
+    };
     let file_list = app
         .file_list
         .widget()
         .block(
             Block::default()
-                .title(Span::styled("Files", styles::title()))
+                .title(Span::styled("Files", title_style))
                 .borders(Borders::ALL)
-                .border_style(styles::border()),
+                .border_style(border_style),
         )
         .style(styles::list_normal())
-        .highlight_style(styles::list_highlight());
+        .highlight_style(highlight_style);
     f.render_widget(file_list, chunks[0]);
     // Help text
     let spans = multiline_to_spans(&app.help_text);
@@ -58,19 +88,21 @@ pub fn draw_prompt<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let chunks = Layout::default()
         .constraints([Constraint::Max(1), Constraint::Max(1)])
         .split(chunk);
-    let text_style = match app.prompt_handler {
-        Some(_) => styles::prompt(),
-        None => styles::dim(),
-    };
-    let cursor_style = match app.prompt_handler {
-        Some(_) => Style::default().bg(Color::Magenta),
-        None => Style::default().bg(Color::Black),
-    };
+    let text_style: Style;
+    let cursor_style: Style;
     let prompt_text: String;
-    match &app.prompt_handler {
-        Some(handler) => prompt_text = format!("{}:", handler.to_string()),
-        None => prompt_text = "".to_string(),
-    }
+    match app.focus {
+        AppFocus::Prompt(handler) => {
+            text_style = styles::prompt();
+            cursor_style = Style::default().bg(Color::Magenta);
+            prompt_text = format!("{}:", handler.to_string());
+        }
+        _ => {
+            text_style = styles::dim();
+            cursor_style = Style::default().bg(Color::Black);
+            prompt_text = "".to_string();
+        }
+    };
     app.textarea.set_cursor_line_style(text_style);
     app.textarea.set_cursor_style(cursor_style);
     f.render_widget(

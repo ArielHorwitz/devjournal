@@ -19,19 +19,29 @@ use tui::{backend::Backend, Terminal};
 use tui_textarea::{CursorMove, TextArea};
 
 const TICK_RATE_MS: u64 = 25;
-const LAST_TAB_INDEX: usize = 1;
 const CREATE_CHAR: char = '⁕';
 const LOAD_CHAR: char = '★';
 const SAVE_CHAR: char = '☑';
 const DELETE_CHAR: char = '☒';
 
-#[derive(Clone, Debug)]
+enum Handled {
+    Yes,
+    No,
+}
+
+#[derive(Debug)]
+pub enum AppFocus {
+    FileList,
+    TaskList,
+    Prompt(PromptHandler),
+}
+
+#[derive(Clone, Debug, Copy)]
 pub enum PromptHandler {
     AddTask,
     RenameTask,
-    SaveFile,
-    LoadFile,
-    DeleteFile,
+    SaveFileAs,
+    AddFile,
 }
 
 impl fmt::Display for PromptHandler {
@@ -66,14 +76,14 @@ impl fmt::Display for Task {
 pub struct App<'a> {
     pub title: &'a str,
     datadir: PathBuf,
+    pub focus: AppFocus,
     quit_flag: bool,
     pub tab_index: usize,
     tick: i32,
     pub textarea: TextArea<'a>,
-    pub prompt_handler: Option<PromptHandler>,
     pub user_feedback_text: String,
     pub help_text: String,
-    pub file_list: List<Task>,
+    pub file_list: List<String>,
     pub task_list: List<Task>,
     active_file: PathBuf,
 }
@@ -85,11 +95,11 @@ impl<'a> App<'a> {
         let mut app = App {
             title,
             datadir,
+            focus: AppFocus::TaskList,
             quit_flag: false,
             tab_index: 0,
             tick: 0,
             textarea: TextArea::default(),
-            prompt_handler: None,
             user_feedback_text: "".to_string(),
             help_text: welcome.clone(),
             file_list: List::default(),
@@ -128,90 +138,128 @@ impl<'a> App<'a> {
     pub fn handle_events(&mut self, timeout: Duration) -> io::Result<()> {
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = crossterm::event::read()? {
-                let handler = self.prompt_handler.clone();
-                match handler {
-                    None => self.handle_event_normal(key),
-                    Some(handlerkind) => self.handle_event_prompt(key, &handlerkind),
-                };
+                if let Handled::No = self.handle_events_global(key) {
+                    match self.focus {
+                        AppFocus::FileList => self.handle_events_filelist(key),
+                        AppFocus::TaskList => self.handle_event_tasklist(key),
+                        AppFocus::Prompt(handlerkind) => {
+                            self.handle_event_prompt(key, &handlerkind);
+                        }
+                    };
+                }
             }
         }
         Ok(())
     }
 
-    fn handle_event_normal(&mut self, key: KeyEvent) {
+    fn focus_next(&mut self) {
+        if let Some(f) = match self.focus {
+            AppFocus::FileList => Some(AppFocus::TaskList),
+            AppFocus::TaskList => Some(AppFocus::FileList),
+            AppFocus::Prompt(_) => Some(AppFocus::TaskList),
+        } {
+            self.focus = f;
+        }
+    }
+
+    fn handle_events_global(&mut self, key: KeyEvent) -> Handled {
         match (key.code, key.modifiers) {
-            (KeyCode::Esc, _) => self.task_list.deselect(),
-            (KeyCode::Up, _) => self.task_list.select_prev(),
-            (KeyCode::Down, _) => self.task_list.select_next(),
-            (KeyCode::Tab, _) => self.increment_tab(),
-            (KeyCode::BackTab, _) => self.decrement_tab(),
+            (KeyCode::Char('q'), KeyModifiers::CONTROL) => self.quit_flag = true,
+            (KeyCode::Char('o'), KeyModifiers::ALT) => self.open_datadir(),
+            (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
+                match self.save_file(None) {
+                    Ok(_) => self.set_feedback_text(&format!(
+                        "{SAVE_CHAR} Saved file: {}",
+                        self.get_active_filename()
+                    )),
+                    Err(e) => self.set_feedback_text(&e.to_string()),
+                };
+            }
+            (KeyCode::Tab, _) => self.focus_next(),
+            (KeyCode::F(1), _) => self.tab_index = 0,
+            (KeyCode::F(2), _) => self.tab_index = 1,
             (KeyCode::F(5), _) => {
                 match self.refresh_file_list() {
                     Ok(_) => self.set_feedback_text("Refreshed file list."),
                     Err(e) => self.set_feedback_text(&e.to_string()),
                 };
             }
-            (KeyCode::Delete, _) => {
-                self.task_list = List::default();
+            _ => return Handled::No,
+        };
+        Handled::Yes
+    }
+
+    fn handle_events_filelist(&mut self, key: KeyEvent) {
+        if let Err(()) = self.file_list.handle_event(key) {
+            match (key.code, key.modifiers) {
+                (KeyCode::Char('n'), KeyModifiers::NONE) => {
+                    self.focus = AppFocus::Prompt(PromptHandler::AddFile)
+                }
+                (KeyCode::Char('d'), KeyModifiers::NONE) => {
+                    if let Some(selected) = self.file_list.pop_selected() {
+                        if let Err(e) = self.delete_file(&selected) {
+                            self.set_feedback_text(&e.to_string());
+                        } else {
+                            self.set_feedback_text(&format!("Deleted file: {}", selected));
+                        }
+                    }
+                }
+                (KeyCode::Char('s'), KeyModifiers::ALT) => {
+                    if let Some(selected) = self.file_list.selected_value() {
+                        match self.save_file(Some(&selected.clone())) {
+                            Ok(_) => {
+                                if let Err(e) = self.refresh_file_list() {
+                                    self.set_feedback_text(&e.to_string());
+                                };
+                            }
+                            Err(e) => self.set_feedback_text(&e.to_string()),
+                        };
+                    }
+                }
+                (KeyCode::Enter, KeyModifiers::NONE) => {
+                    if let Some(filename) = self.file_list.selected_value() {
+                        self.load_file(Some(&filename.clone())).unwrap();
+                    };
+                }
+                _ => (),
             }
-            (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
-                if let Err(e) = self.save_file(None) {
-                    self.set_feedback_text(&e.to_string());
-                };
-            }
-            (KeyCode::Char('s'), KeyModifiers::ALT) => {
-                self.prompt_handler = Some(PromptHandler::SaveFile)
-            }
-            (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
-                self.prompt_handler = Some(PromptHandler::LoadFile);
-            }
-            (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
-                self.prompt_handler = Some(PromptHandler::DeleteFile);
-            }
-            (KeyCode::Char('j'), KeyModifiers::CONTROL) => {
-                self.task_list.move_down().unwrap_or(());
-            }
-            (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
-                self.task_list.move_up().unwrap_or(());
-            }
-            (KeyCode::Char('o'), KeyModifiers::ALT) => {
-                self.open_datadir();
-            }
-            (KeyCode::Char(c), KeyModifiers::NONE) => match c {
-                'q' => self.quit_flag = true,
-                'j' => self.task_list.select_next(),
-                'k' => self.task_list.select_prev(),
-                'a' => self.prompt_handler = Some(PromptHandler::AddTask),
-                'd' => {
+        }
+    }
+
+    fn handle_event_tasklist(&mut self, key: KeyEvent) {
+        if let Err(()) = self.task_list.handle_event(key) {
+            match (key.code, key.modifiers) {
+                (KeyCode::Char('s'), KeyModifiers::ALT) => {
+                    self.focus = AppFocus::Prompt(PromptHandler::SaveFileAs)
+                }
+                (KeyCode::Char('a'), KeyModifiers::NONE) => {
+                    self.focus = AppFocus::Prompt(PromptHandler::AddTask)
+                }
+                (KeyCode::Char('d'), KeyModifiers::NONE) => {
                     if let Some(desc) = self.task_list.pop_selected() {
                         self.set_feedback_text(&format!("Deleted task: {}", desc));
                     }
                 }
-                'r' => {
+                (KeyCode::Char('r'), KeyModifiers::NONE) => {
                     if let Some(text) = self.task_list.selected_value() {
                         self.set_prompt_text(&text.to_string());
-                        self.prompt_handler = Some(PromptHandler::RenameTask);
+                        self.focus = AppFocus::Prompt(PromptHandler::RenameTask);
                     }
                 }
                 _ => (),
-            },
-            _ => (),
+            }
         }
     }
 
     fn handle_event_prompt(&mut self, key: KeyEvent, handlerkind: &PromptHandler) {
         match key.code {
-            KeyCode::Esc => {
-                self.prompt_handler = None;
-            }
+            KeyCode::Esc => self.focus_next(),
             KeyCode::Enter => {
                 let prompt_text = self.get_prompt_text();
                 self.set_prompt_text("");
                 self.handle_prompt(handlerkind, &prompt_text);
-                self.prompt_handler = None;
+                self.focus_next();
             }
-            KeyCode::Tab => self.increment_tab(),
-            KeyCode::BackTab => self.decrement_tab(),
             _ => {
                 self.textarea.input(key);
             }
@@ -227,7 +275,7 @@ impl<'a> App<'a> {
             PromptHandler::RenameTask => {
                 self.task_list.replace_selected(Task::new(prompt_text));
             }
-            PromptHandler::SaveFile => {
+            PromptHandler::SaveFileAs => {
                 match self.save_file(Some(prompt_text)) {
                     Ok(_) => {
                         if let Err(e) = self.refresh_file_list() {
@@ -237,13 +285,8 @@ impl<'a> App<'a> {
                     Err(e) => self.set_feedback_text(&e.to_string()),
                 };
             }
-            PromptHandler::LoadFile => {
+            PromptHandler::AddFile => {
                 if let Err(e) = self.load_file(Some(prompt_text)) {
-                    self.set_feedback_text(&e.to_string());
-                }
-            }
-            PromptHandler::DeleteFile => {
-                if let Err(e) = self.delete_file(prompt_text) {
                     self.set_feedback_text(&e.to_string());
                 }
             }
@@ -345,29 +388,13 @@ impl<'a> App<'a> {
         self.file_list.clear_items();
         entries
             .iter()
-            .map(|e| self.file_list.add_item(Task::new(e)))
+            .map(|f| self.file_list.add_item(f.clone()))
             .last();
         Ok(())
     }
 
     fn open_datadir(&self) {
         Command::new("xdg-open").arg(&self.datadir).spawn().unwrap();
-    }
-
-    fn decrement_tab(&mut self) {
-        if self.tab_index > 0 {
-            self.tab_index -= 1;
-        } else {
-            self.tab_index = LAST_TAB_INDEX;
-        }
-    }
-
-    fn increment_tab(&mut self) {
-        if self.tab_index < LAST_TAB_INDEX {
-            self.tab_index += LAST_TAB_INDEX;
-        } else {
-            self.tab_index = 0;
-        }
     }
 }
 
