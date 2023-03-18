@@ -33,6 +33,10 @@ where
         self.items.push(item);
     }
 
+    pub fn clear_items(&mut self) {
+        self.items = Vec::default();
+    }
+
     pub fn selected_value(&self) -> Option<&T> {
         match self.selection {
             None => None,
