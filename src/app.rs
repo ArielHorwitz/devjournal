@@ -7,9 +7,9 @@ use crossterm::{
 use pathdiff::diff_paths;
 use platform_dirs::AppDirs;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use std::io::{stdout, ErrorKind, Write};
 use std::path::{Path, PathBuf};
+use std::{fmt, process::Command};
 use std::{
     fs::{self, remove_file, File},
     io::{self, Read},
@@ -170,6 +170,9 @@ impl<'a> App<'a> {
             }
             (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
                 self.task_list.move_up().unwrap_or(());
+            }
+            (KeyCode::Char('o'), KeyModifiers::ALT) => {
+                self.open_datadir();
             }
             (KeyCode::Char(c), KeyModifiers::NONE) => match c {
                 'q' => self.should_quit = true,
@@ -338,6 +341,10 @@ impl<'a> App<'a> {
         entries.sort();
         self.help_text = format!("Available files:\n{}", entries.join("\n"));
         Ok(())
+    }
+
+    fn open_datadir(&self) {
+        Command::new("xdg-open").arg(&self.datadir).spawn().unwrap();
     }
 
     fn decrement_tab(&mut self) {
