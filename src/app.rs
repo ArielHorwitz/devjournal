@@ -73,6 +73,19 @@ impl fmt::Display for Task {
     }
 }
 
+fn try_load(filepath: &PathBuf) -> io::Result<List<Task>> {
+    let mut encoded: Vec<u8> = Vec::new();
+    File::open(filepath)?.read_to_end(&mut encoded)?;
+    if let Ok(result) = bincode::deserialize::<List<Task>>(encoded.as_slice()) {
+        Ok(result)
+    } else {
+        Err(io::Error::new(
+            ErrorKind::InvalidData,
+            "corrupt or unrecognized file",
+        ))
+    }
+}
+
 pub struct App<'a> {
     pub title: &'a str,
     datadir: PathBuf,
@@ -338,21 +351,14 @@ impl<'a> App<'a> {
             create_file(self.active_file.to_str().unwrap()).unwrap();
             action_name = format!("{CREATE_CHAR} Created");
         }
-        let mut encoded: Vec<u8> = Vec::new();
-        File::open(&self.active_file)?.read_to_end(&mut encoded)?;
-        match bincode::deserialize(encoded.as_slice()) {
-            Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
-            Ok(decoded) => {
-                self.task_list = decoded;
-                self.task_list.deselect();
-                self.set_feedback_text(&format!(
-                    "{action_name} file: {}",
-                    self.get_active_filename()
-                ));
-                self.refresh_file_list().unwrap();
-                return Ok(());
-            }
-        }
+        self.task_list = try_load(&self.active_file)?;
+        self.task_list.deselect();
+        self.set_feedback_text(&format!(
+            "{action_name} file: {}",
+            self.get_active_filename()
+        ));
+        self.refresh_file_list().unwrap();
+        Ok(())
     }
 
     fn delete_file(&mut self, filename: &str) -> io::Result<()> {
