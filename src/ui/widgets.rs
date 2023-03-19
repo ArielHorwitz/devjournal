@@ -1,3 +1,4 @@
+use self::list::ListWidget;
 use super::styles;
 use crate::app::{App, AppFocus};
 use tui::{
@@ -30,9 +31,7 @@ pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
                 highlight_style = styles::list_highlight();
             }
         }
-        let widget = subproject
-            .tasks
-            .widget()
+        let widget = ListWidget::new(subproject.tasks.as_strings(), subproject.tasks.selected())
             .block(
                 Block::default()
                     .title(Span::styled(&subproject.name, title_style))
@@ -66,9 +65,7 @@ pub fn draw_sidebar<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
             highlight_style = styles::list_normal();
         }
     };
-    let file_list = app
-        .file_list
-        .widget()
+    let file_list = ListWidget::new(app.file_list.as_strings(), app.file_list.selected())
         .block(
             Block::default()
                 .title(Span::styled("Files", title_style))

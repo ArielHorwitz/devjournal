@@ -1,12 +1,13 @@
 /// App state and logic
-use crate::ui::{self, widgets::list::List};
+pub mod project;
+use self::project::{List, Project, Task};
+use crate::ui::{self, widgets::list::handle_event};
 use crossterm::{
     event::{Event, KeyCode, KeyEvent, KeyModifiers},
     terminal::SetTitle,
 };
 use pathdiff::diff_paths;
 use platform_dirs::AppDirs;
-use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     fs::{self, remove_file, File},
@@ -50,82 +51,6 @@ impl fmt::Display for PromptHandler {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Task {
-    pub desc: String,
-    pub created_at: String,
-    pub completed_at: Option<String>,
-}
-
-impl Task {
-    pub fn new(desc: &str) -> Task {
-        Task {
-            desc: desc.to_string(),
-            created_at: "2020-02-02 12:00:00".to_string(),
-            completed_at: None,
-        }
-    }
-}
-
-impl fmt::Display for Task {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&format!("{}", self.desc))
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct SubProject {
-    pub name: String,
-    pub tasks: List<Task>,
-}
-
-impl SubProject {
-    pub fn new(name: &str, tasks: Vec<Task>) -> SubProject {
-        SubProject {
-            name: name.to_string(),
-            tasks: List::from_vec(tasks),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Project {
-    pub name: String,
-    pub subprojects: Vec<SubProject>,
-}
-
-impl Project {
-    pub fn new(name: &str, subprojects: Vec<SubProject>) -> Project {
-        Project {
-            name: name.to_string(),
-            subprojects,
-        }
-    }
-}
-
-fn load_backcompatible(filepath: &PathBuf) -> io::Result<Project> {
-    let project_name = diff_paths(filepath, filepath.parent().unwrap())
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
-    let mut encoded: Vec<u8> = Vec::new();
-    File::open(filepath)?.read_to_end(&mut encoded)?;
-    if let Ok(project) = bincode::deserialize::<Project>(encoded.as_slice()) {
-        Ok(project)
-    } else if let Ok(task_list) = bincode::deserialize::<List<Task>>(encoded.as_slice()) {
-        Ok(Project::new(
-            &project_name,
-            vec![SubProject::new("Tasks", task_list.to_vec())],
-        ))
-    } else {
-        Err(io::Error::new(
-            ErrorKind::InvalidData,
-            "corrupt or unrecognized file",
-        ))
-    }
-}
-
 pub struct App<'a> {
     pub title: &'a str,
     datadir: PathBuf,
@@ -157,8 +82,8 @@ impl<'a> App<'a> {
             textarea: TextArea::default(),
             user_feedback_text: "".to_string(),
             help_text: welcome.clone(),
-            file_list: List::default(),
-            project: Project::new("dev", Vec::new()),
+            file_list: List::new(),
+            project: Project::new("dev", "Tasks"),
             active_file: active_file.clone(),
         };
         app.set_active_file(active_file);
@@ -282,7 +207,7 @@ impl<'a> App<'a> {
     }
 
     fn handle_events_filelist(&mut self, key: KeyEvent) {
-        if let Err(()) = self.file_list.handle_event(key) {
+        if let Err(()) = handle_event(&mut self.file_list, key) {
             match (key.code, key.modifiers) {
                 (KeyCode::Char('n'), KeyModifiers::NONE) => {
                     self.focus_prompt(PromptHandler::AddFile);
@@ -319,7 +244,7 @@ impl<'a> App<'a> {
     }
 
     fn handle_event_tasklist(&mut self, key: KeyEvent, index: usize) {
-        if let Err(()) = self.project.subprojects[index].tasks.handle_event(key) {
+        if let Err(()) = handle_event(&mut self.project.subprojects[index].tasks, key) {
             match (key.code, key.modifiers) {
                 (KeyCode::Char('s'), KeyModifiers::ALT) => {
                     self.focus_prompt(PromptHandler::SaveFileAs);
@@ -437,7 +362,7 @@ impl<'a> App<'a> {
             create_file(self.active_file.to_str().unwrap()).unwrap();
             action_name = format!("{CREATE_CHAR} Created");
         }
-        self.project = load_backcompatible(&self.active_file)?;
+        self.project = Project::from_file(&self.active_file)?;
         for subproject in &mut self.project.subprojects {
             subproject.tasks.deselect();
         }
@@ -498,7 +423,7 @@ impl<'a> App<'a> {
 }
 
 fn create_file(filepath: &str) -> io::Result<()> {
-    let empty_data: List<Task> = List::default();
+    let empty_data: List<Task> = List::new();
     match bincode::serialize(&empty_data) {
         Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
         Ok(encoded) => {
