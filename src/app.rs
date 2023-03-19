@@ -29,10 +29,10 @@ enum Handled {
     No,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AppFocus {
     FileList,
-    TaskList,
+    TaskList(usize),
     Prompt(PromptHandler),
 }
 
@@ -50,7 +50,7 @@ impl fmt::Display for PromptHandler {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Task {
     pub desc: String,
     pub created_at: String,
@@ -73,11 +73,51 @@ impl fmt::Display for Task {
     }
 }
 
-fn try_load(filepath: &PathBuf) -> io::Result<List<Task>> {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SubProject {
+    pub name: String,
+    pub tasks: List<Task>,
+}
+
+impl SubProject {
+    pub fn new(name: &str, tasks: Vec<Task>) -> SubProject {
+        SubProject {
+            name: name.to_string(),
+            tasks: List::from_vec(tasks),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Project {
+    pub name: String,
+    pub subprojects: Vec<SubProject>,
+}
+
+impl Project {
+    pub fn new(name: &str, subprojects: Vec<SubProject>) -> Project {
+        Project {
+            name: name.to_string(),
+            subprojects,
+        }
+    }
+}
+
+fn load_backcompatible(filepath: &PathBuf) -> io::Result<Project> {
+    let project_name = diff_paths(filepath, filepath.parent().unwrap())
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
     let mut encoded: Vec<u8> = Vec::new();
     File::open(filepath)?.read_to_end(&mut encoded)?;
-    if let Ok(result) = bincode::deserialize::<List<Task>>(encoded.as_slice()) {
-        Ok(result)
+    if let Ok(project) = bincode::deserialize::<Project>(encoded.as_slice()) {
+        Ok(project)
+    } else if let Ok(task_list) = bincode::deserialize::<List<Task>>(encoded.as_slice()) {
+        Ok(Project::new(
+            &project_name,
+            vec![SubProject::new("Tasks", task_list.to_vec())],
+        ))
     } else {
         Err(io::Error::new(
             ErrorKind::InvalidData,
@@ -89,6 +129,7 @@ fn try_load(filepath: &PathBuf) -> io::Result<List<Task>> {
 pub struct App<'a> {
     pub title: &'a str,
     datadir: PathBuf,
+    last_focus: AppFocus,
     pub focus: AppFocus,
     quit_flag: bool,
     pub tab_index: usize,
@@ -97,7 +138,7 @@ pub struct App<'a> {
     pub user_feedback_text: String,
     pub help_text: String,
     pub file_list: List<String>,
-    pub task_list: List<Task>,
+    pub project: Project,
     active_file: PathBuf,
 }
 
@@ -108,7 +149,8 @@ impl<'a> App<'a> {
         let mut app = App {
             title,
             datadir,
-            focus: AppFocus::TaskList,
+            last_focus: AppFocus::FileList,
+            focus: AppFocus::TaskList(0),
             quit_flag: false,
             tab_index: 0,
             tick: 0,
@@ -116,7 +158,7 @@ impl<'a> App<'a> {
             user_feedback_text: "".to_string(),
             help_text: welcome.clone(),
             file_list: List::default(),
-            task_list: List::default(),
+            project: Project::new("dev", Vec::new()),
             active_file: active_file.clone(),
         };
         app.set_active_file(active_file);
@@ -151,10 +193,13 @@ impl<'a> App<'a> {
     pub fn handle_events(&mut self, timeout: Duration) -> io::Result<()> {
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = crossterm::event::read()? {
+                if self.tab_index == 1 {
+                    self.set_feedback_text(&format!("{:?}", key));
+                }
                 if let Handled::No = self.handle_events_global(key) {
                     match self.focus {
                         AppFocus::FileList => self.handle_events_filelist(key),
-                        AppFocus::TaskList => self.handle_event_tasklist(key),
+                        AppFocus::TaskList(i) => self.handle_event_tasklist(key, i),
                         AppFocus::Prompt(handlerkind) => {
                             self.handle_event_prompt(key, &handlerkind);
                         }
@@ -165,14 +210,47 @@ impl<'a> App<'a> {
         Ok(())
     }
 
+    fn focus_last(&mut self) {
+        let last_focus = self.last_focus.clone();
+        self.last_focus = self.focus.clone();
+        self.focus = last_focus;
+    }
+
     fn focus_next(&mut self) {
-        if let Some(f) = match self.focus {
-            AppFocus::FileList => Some(AppFocus::TaskList),
-            AppFocus::TaskList => Some(AppFocus::FileList),
-            AppFocus::Prompt(_) => Some(AppFocus::TaskList),
-        } {
-            self.focus = f;
+        self.last_focus = self.focus.clone();
+        match self.focus {
+            AppFocus::FileList => self.focus = AppFocus::TaskList(0),
+            AppFocus::TaskList(index) => {
+                if index < self.project.subprojects.len() - 1 {
+                    self.focus = AppFocus::TaskList(index + 1);
+                } else {
+                    self.focus = AppFocus::FileList;
+                }
+            }
+            AppFocus::Prompt(_) => self.focus = AppFocus::FileList,
         }
+    }
+
+    fn focus_prev(&mut self) {
+        self.last_focus = self.focus.clone();
+        match self.focus {
+            AppFocus::FileList => {
+                self.focus = AppFocus::TaskList(self.project.subprojects.len() - 1)
+            }
+            AppFocus::TaskList(index) => {
+                if index == 0 {
+                    self.focus = AppFocus::FileList;
+                } else {
+                    self.focus = AppFocus::TaskList(index - 1)
+                }
+            }
+            AppFocus::Prompt(_) => self.focus = AppFocus::FileList,
+        }
+    }
+
+    fn focus_prompt(&mut self, handlerkind: PromptHandler) {
+        self.last_focus = self.focus.clone();
+        self.focus = AppFocus::Prompt(handlerkind);
     }
 
     fn handle_events_global(&mut self, key: KeyEvent) -> Handled {
@@ -189,6 +267,7 @@ impl<'a> App<'a> {
                 };
             }
             (KeyCode::Tab, _) => self.focus_next(),
+            (KeyCode::BackTab, _) => self.focus_prev(),
             (KeyCode::F(1), _) => self.tab_index = 0,
             (KeyCode::F(2), _) => self.tab_index = 1,
             (KeyCode::F(5), _) => {
@@ -206,7 +285,7 @@ impl<'a> App<'a> {
         if let Err(()) = self.file_list.handle_event(key) {
             match (key.code, key.modifiers) {
                 (KeyCode::Char('n'), KeyModifiers::NONE) => {
-                    self.focus = AppFocus::Prompt(PromptHandler::AddFile)
+                    self.focus_prompt(PromptHandler::AddFile);
                 }
                 (KeyCode::Char('d'), KeyModifiers::NONE) => {
                     if let Some(selected) = self.file_list.pop_selected() {
@@ -239,24 +318,24 @@ impl<'a> App<'a> {
         }
     }
 
-    fn handle_event_tasklist(&mut self, key: KeyEvent) {
-        if let Err(()) = self.task_list.handle_event(key) {
+    fn handle_event_tasklist(&mut self, key: KeyEvent, index: usize) {
+        if let Err(()) = self.project.subprojects[index].tasks.handle_event(key) {
             match (key.code, key.modifiers) {
                 (KeyCode::Char('s'), KeyModifiers::ALT) => {
-                    self.focus = AppFocus::Prompt(PromptHandler::SaveFileAs)
+                    self.focus_prompt(PromptHandler::SaveFileAs);
                 }
                 (KeyCode::Char('a'), KeyModifiers::NONE) => {
-                    self.focus = AppFocus::Prompt(PromptHandler::AddTask)
+                    self.focus_prompt(PromptHandler::AddTask);
                 }
                 (KeyCode::Char('d'), KeyModifiers::NONE) => {
-                    if let Some(desc) = self.task_list.pop_selected() {
+                    if let Some(desc) = self.project.subprojects[index].tasks.pop_selected() {
                         self.set_feedback_text(&format!("Deleted task: {}", desc));
                     }
                 }
                 (KeyCode::Char('r'), KeyModifiers::NONE) => {
-                    if let Some(text) = self.task_list.selected_value() {
+                    if let Some(text) = self.project.subprojects[index].tasks.selected_value() {
                         self.set_prompt_text(&text.to_string());
-                        self.focus = AppFocus::Prompt(PromptHandler::RenameTask);
+                        self.focus_prompt(PromptHandler::RenameTask);
                     }
                 }
                 _ => (),
@@ -266,12 +345,14 @@ impl<'a> App<'a> {
 
     fn handle_event_prompt(&mut self, key: KeyEvent, handlerkind: &PromptHandler) {
         match key.code {
-            KeyCode::Esc => self.focus_next(),
+            KeyCode::Esc => self.focus_last(),
             KeyCode::Enter => {
-                let prompt_text = self.get_prompt_text();
-                self.set_prompt_text("");
-                self.handle_prompt(handlerkind, &prompt_text);
-                self.focus_next();
+                if let AppFocus::TaskList(index) = self.last_focus {
+                    let prompt_text = self.get_prompt_text();
+                    self.set_prompt_text("");
+                    self.focus_last();
+                    self.handle_prompt(handlerkind, &prompt_text, index);
+                }
             }
             _ => {
                 self.textarea.input(key);
@@ -279,14 +360,19 @@ impl<'a> App<'a> {
         }
     }
 
-    fn handle_prompt(&mut self, handlerkind: &PromptHandler, prompt_text: &str) {
+    fn handle_prompt(&mut self, handlerkind: &PromptHandler, prompt_text: &str, index: usize) {
         match handlerkind {
             PromptHandler::AddTask => {
-                self.task_list.add_item(Task::new(prompt_text));
+                self.project.subprojects[index]
+                    .tasks
+                    .add_item(Task::new(prompt_text));
                 self.set_feedback_text(&format!("Added task: {prompt_text}"));
             }
             PromptHandler::RenameTask => {
-                self.task_list.replace_selected(Task::new(prompt_text));
+                self.project.subprojects[index]
+                    .tasks
+                    .replace_selected(Task::new(prompt_text));
+                self.set_feedback_text(&format!("Renamed task: {prompt_text}"));
             }
             PromptHandler::SaveFileAs => {
                 match self.save_file(Some(prompt_text)) {
@@ -326,7 +412,7 @@ impl<'a> App<'a> {
         }
         set_default_file_path(&self.datadir, self.active_file.to_str().unwrap())?;
         let filepath = self.active_file.clone();
-        match bincode::serialize(&self.task_list) {
+        match bincode::serialize(&self.project) {
             Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e.to_string())),
             Ok(encoded) => {
                 let mut file = File::create(&filepath)?;
@@ -351,8 +437,10 @@ impl<'a> App<'a> {
             create_file(self.active_file.to_str().unwrap()).unwrap();
             action_name = format!("{CREATE_CHAR} Created");
         }
-        self.task_list = try_load(&self.active_file)?;
-        self.task_list.deselect();
+        self.project = load_backcompatible(&self.active_file)?;
+        for subproject in &mut self.project.subprojects {
+            subproject.tasks.deselect();
+        }
         self.set_feedback_text(&format!(
             "{action_name} file: {}",
             self.get_active_filename()
@@ -396,6 +484,11 @@ impl<'a> App<'a> {
             .iter()
             .map(|f| self.file_list.add_item(f.clone()))
             .last();
+        self.help_text = format!(
+            "Current project: {}\n\n[{}]",
+            self.project.name,
+            self.active_file.to_str().unwrap(),
+        );
         Ok(())
     }
 

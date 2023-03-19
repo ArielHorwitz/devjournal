@@ -10,10 +10,10 @@ use tui::{
     widgets::{Block, Widget},
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct List<T>
 where
-    T: Display,
+    T: Clone + Display,
 {
     items: Vec<T>,
     selection: Option<usize>,
@@ -21,13 +21,24 @@ where
 
 impl<T> List<T>
 where
-    T: Display,
+    T: Clone + Display,
 {
     pub fn default() -> List<T> {
         List {
             items: Vec::default(),
             selection: None,
         }
+    }
+
+    pub fn from_vec(vec: Vec<T>) -> List<T> {
+        List {
+            items: vec,
+            selection: None,
+        }
+    }
+
+    pub fn to_vec(&self) -> Vec<T> {
+        self.items.clone()
     }
 
     pub fn add_item(&mut self, item: T) {

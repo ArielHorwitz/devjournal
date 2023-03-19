@@ -11,34 +11,38 @@ use tui::{
 pub mod list;
 
 pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let title = format!("Tasks - {}", app.get_active_filename());
-    let border_style: Style;
-    let title_style: Style;
-    let highlight_style: Style;
-    match app.focus {
-        AppFocus::TaskList => {
-            border_style = styles::border_highlighted();
-            title_style = styles::title_highlighted();
-            highlight_style = styles::list_highlight();
+    let subproject_count = app.project.subprojects.len();
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![
+            Constraint::Ratio(1, subproject_count as u32);
+            subproject_count
+        ])
+        .split(chunk);
+    for (index, subproject) in app.project.subprojects.iter().enumerate() {
+        let mut border_style = styles::border();
+        let mut title_style = styles::title();
+        let mut highlight_style = styles::list_normal();
+        if let AppFocus::TaskList(focused_index) = app.focus {
+            if focused_index == index {
+                border_style = styles::border_highlighted();
+                title_style = styles::title_highlighted();
+                highlight_style = styles::list_highlight();
+            }
         }
-        _ => {
-            border_style = styles::border();
-            title_style = styles::title();
-            highlight_style = styles::list_normal();
-        }
-    };
-    let test = app
-        .task_list
-        .widget()
-        .block(
-            Block::default()
-                .title(Span::styled(title, title_style))
-                .borders(Borders::ALL)
-                .border_style(border_style),
-        )
-        .style(styles::list_normal())
-        .highlight_style(highlight_style);
-    f.render_widget(test, chunk);
+        let widget = subproject
+            .tasks
+            .widget()
+            .block(
+                Block::default()
+                    .title(Span::styled(&subproject.name, title_style))
+                    .borders(Borders::ALL)
+                    .border_style(border_style),
+            )
+            .style(styles::list_normal())
+            .highlight_style(highlight_style);
+        f.render_widget(widget, chunks[index]);
+    }
 }
 
 pub fn draw_sidebar<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
