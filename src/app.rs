@@ -1,6 +1,6 @@
 /// App state and logic
 pub mod project;
-use self::project::{List, Project, Task};
+use self::project::{List, Project, SubProject, Task};
 use crate::ui::{self, widgets::list::handle_event};
 use crossterm::{
     event::{Event, KeyCode, KeyEvent, KeyModifiers},
@@ -183,6 +183,18 @@ impl<'a> App<'a> {
         match (key.code, key.modifiers) {
             (KeyCode::Char('q'), KeyModifiers::CONTROL) => self.quit_flag = true,
             (KeyCode::Char('o'), KeyModifiers::ALT) => self.open_datadir(),
+            (KeyCode::Char('-'), KeyModifiers::ALT) => {
+                if let AppFocus::TaskList(index) = self.focus {
+                    if self.project.subprojects.len() > 1 {
+                        self.project.subprojects.remove(index);
+                    }
+                }
+            }
+            (KeyCode::Char('='), KeyModifiers::ALT) => {
+                self.project
+                    .subprojects
+                    .push(SubProject::new("New Subproject"));
+            }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                 match self.save_file(None) {
                     Ok(_) => self.set_feedback_text(&format!(
