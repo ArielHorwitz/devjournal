@@ -43,6 +43,7 @@ pub enum PromptHandler {
     RenameTask,
     SaveFileAs,
     AddFile,
+    RenameSubProject,
 }
 
 impl fmt::Display for PromptHandler {
@@ -257,6 +258,9 @@ impl<'a> App<'a> {
                         self.set_feedback_text(&format!("Deleted task: {}", desc));
                     }
                 }
+                (KeyCode::Char('R'), KeyModifiers::SHIFT) => {
+                    self.focus_prompt(PromptHandler::RenameSubProject);
+                }
                 (KeyCode::Char('r'), KeyModifiers::NONE) => {
                     if let Some(text) = self.project.subprojects[index].tasks.selected_value() {
                         self.set_prompt_text(&text.to_string());
@@ -313,6 +317,9 @@ impl<'a> App<'a> {
                 if let Err(e) = self.load_file(Some(prompt_text)) {
                     self.set_feedback_text(&e.to_string());
                 }
+            }
+            PromptHandler::RenameSubProject => {
+                self.project.subprojects[index.clone()].name = prompt_text.to_string();
             }
         };
     }
@@ -410,9 +417,9 @@ impl<'a> App<'a> {
             .map(|f| self.file_list.add_item(f.clone()))
             .last();
         self.help_text = format!(
-            "Current project: {}\n\n[{}]",
+            "Project: {}\nFile: {}",
             self.project.name,
-            self.active_file.to_str().unwrap(),
+            self.active_file.file_name().unwrap().to_str().unwrap(),
         );
         Ok(())
     }

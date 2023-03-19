@@ -44,12 +44,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     };
     widgets::draw_feedback_text(f, app, chunks[2]);
     if let crate::app::AppFocus::Prompt(handler) = app.focus {
-        widgets::draw_prompt(
-            f,
-            app,
-            center_rect(80, 3, chunks[1]),
-            &format!("{}:", handler.to_string()),
-        );
+        widgets::draw_prompt(f, app, center_rect(80, 3, chunks[1]), &handler.to_string());
     };
 }
 
