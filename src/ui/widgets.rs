@@ -1,48 +1,17 @@
 use self::list::ListWidget;
 use super::styles;
-use crate::app::{App, AppFocus};
+use crate::app::App;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Span, Spans},
-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
 pub mod list;
-
-pub fn draw_tasks<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let subproject_count = app.project.subprojects.len();
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(vec![
-            Constraint::Ratio(1, subproject_count as u32);
-            subproject_count
-        ])
-        .split(chunk);
-    for (index, subproject) in app.project.subprojects.iter().enumerate() {
-        let mut border_style = styles::border();
-        let mut title_style = styles::title();
-        let mut highlight_style = styles::list_normal();
-        if let AppFocus::TaskList(focused_index) = app.focus {
-            if focused_index == index {
-                border_style = styles::border_highlighted();
-                title_style = styles::title_highlighted();
-                highlight_style = styles::list_highlight();
-            }
-        }
-        let widget = ListWidget::new(subproject.tasks.as_strings(), subproject.tasks.selected())
-            .block(
-                Block::default()
-                    .title(Span::styled(&subproject.name, title_style))
-                    .borders(Borders::ALL)
-                    .border_style(border_style),
-            )
-            .style(styles::list_normal())
-            .highlight_style(highlight_style);
-        f.render_widget(widget, chunks[index]);
-    }
-}
+pub mod project;
+pub mod prompt;
 
 pub fn draw_sidebar<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
     let chunks = Layout::default()
@@ -53,18 +22,21 @@ pub fn draw_sidebar<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
     let border_style: Style;
     let title_style: Style;
     let highlight_style: Style;
-    match app.focus {
-        AppFocus::FileList => {
-            border_style = styles::border_highlighted();
-            title_style = styles::title_highlighted();
-            highlight_style = styles::list_highlight();
-        }
-        _ => {
-            border_style = styles::border();
-            title_style = styles::title();
-            highlight_style = styles::list_normal();
-        }
-    };
+    // match app.focus {
+    //     AppFocus::FileList => {
+    //         border_style = styles::border_highlighted();
+    //         title_style = styles::title_highlighted();
+    //         highlight_style = styles::list_highlight();
+    //     }
+    //     _ => {
+    //         border_style = styles::border();
+    //         title_style = styles::title();
+    //         highlight_style = styles::list_normal();
+    //     }
+    // };
+    border_style = styles::border();
+    title_style = styles::title();
+    highlight_style = styles::list_normal();
     let file_list = ListWidget::new(app.file_list.as_strings(), app.file_list.selected())
         .block(
             Block::default()
@@ -83,20 +55,6 @@ pub fn draw_sidebar<B: Backend>(f: &mut Frame<B>, app: &App, chunk: Rect) {
         .border_style(styles::border());
     let paragraph = Paragraph::new(spans).block(block).wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunks[1]);
-}
-
-pub fn draw_prompt<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect, prompt_text: &str) {
-    f.render_widget(Clear, chunk);
-    app.textarea.set_cursor_line_style(styles::prompt());
-    app.textarea
-        .set_cursor_style(Style::default().bg(Color::Magenta));
-    let block = Block::default()
-        .title(Span::styled(prompt_text, styles::highlight()))
-        .borders(Borders::ALL)
-        .border_style(styles::border_highlighted());
-    let inner = block.inner(chunk);
-    f.render_widget(block, chunk);
-    f.render_widget(app.textarea.widget(), inner)
 }
 
 pub fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
