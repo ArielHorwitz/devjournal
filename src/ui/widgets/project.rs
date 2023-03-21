@@ -58,7 +58,7 @@ impl<'a> ProjectWidget<'a> {
         ProjectWidget {
             datadir: datadir_path,
             project,
-            prompt: PromptWidget::default(),
+            prompt: PromptWidget::default().width_hint(0.7),
             subproject_focus: 0,
             prompt_request: None,
             filelist: FileListWidget::new(datadir),

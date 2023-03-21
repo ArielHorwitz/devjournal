@@ -10,6 +10,7 @@ use std::{
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
+    style::Style,
     text::Span,
     widgets::{Block, Borders, Clear},
     Frame,
@@ -33,16 +34,20 @@ pub struct FileListWidget<'a> {
     filelist: List<String>,
     focus: Focus,
     title: String,
+    style_title: Style,
+    style_border: Style,
 }
 
 impl<'a> FileListWidget<'a> {
     pub fn new(datadir: &str) -> FileListWidget<'a> {
         let mut widget = FileListWidget {
-            prompt: PromptWidget::default().width_hint(1.).margin(0),
+            prompt: PromptWidget::default().focus(false).margin(0),
             datadir: datadir.to_string(),
             filelist: List::new(),
             focus: Focus::FileList,
             title: "Files".to_string(),
+            style_title: styles::title_highlighted(),
+            style_border: styles::border_highlighted(),
         };
         widget.refresh_filelist();
         widget.filelist.select_next();
@@ -91,16 +96,12 @@ impl<'a> FileListWidget<'a> {
                 Constraint::Length(3),
             ])
             .split(chunk);
-        let files_title_style = match self.focus {
-            Focus::FileList => styles::title_highlighted(),
-            _ => styles::title(),
-        };
         let file_list = ListWidget::new(self.filelist.as_strings(), self.filelist.selected())
             .block(
                 Block::default()
-                    .title(Span::styled(&self.title, files_title_style))
+                    .title(Span::styled(&self.title, self.style_title))
                     .borders(Borders::ALL)
-                    .border_style(styles::border_highlighted()),
+                    .border_style(self.style_border),
             )
             .style(styles::list_normal())
             .highlight_style(styles::list_highlight());
@@ -131,10 +132,26 @@ impl<'a> FileListWidget<'a> {
         }
     }
 
+    fn set_focus(&mut self, focus: Focus) {
+        self.focus = focus;
+        self.style_title = match &self.focus {
+            Focus::FileList => styles::title_highlighted(),
+            _ => styles::title(),
+        };
+        self.style_border = match &self.focus {
+            Focus::FileList => styles::border_highlighted(),
+            _ => styles::border(),
+        };
+        self.prompt.set_focus(match &self.focus {
+            Focus::Prompt => true,
+            _ => false,
+        });
+    }
+
     pub fn handle_event_list(&mut self, key: KeyEvent) -> FileListResult {
         match (key.code, key.modifiers) {
             (KeyCode::Tab, KeyModifiers::NONE) => {
-                self.focus = Focus::Prompt;
+                self.set_focus(Focus::Prompt);
                 return FileListResult::AwaitingResult;
             }
             (KeyCode::Char('j'), KeyModifiers::NONE) => self.filelist.select_next(),
@@ -159,7 +176,7 @@ impl<'a> FileListWidget<'a> {
     pub fn handle_event_prompt(&mut self, key: KeyEvent) -> FileListResult {
         match (key.code, key.modifiers) {
             (KeyCode::Tab, KeyModifiers::NONE) => {
-                self.focus = Focus::FileList;
+                self.set_focus(Focus::FileList);
                 FileListResult::AwaitingResult
             }
             (KeyCode::Enter, KeyModifiers::NONE) => {

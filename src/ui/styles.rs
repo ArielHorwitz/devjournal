@@ -15,13 +15,6 @@ pub fn dim() -> Style {
     Style::default().fg(Color::DarkGray)
 }
 
-pub fn highlight() -> Style {
-    Style::default()
-        .bg(Color::Rgb(28, 28, 52))
-        .fg(Color::White)
-        .add_modifier(Modifier::BOLD)
-}
-
 pub fn active_tab() -> Style {
     Style::default()
         .fg(Color::Magenta)
@@ -36,8 +29,16 @@ pub fn prompt() -> Style {
     Style::default().fg(Color::Green)
 }
 
+pub fn prompt_highlighted() -> Style {
+    Style::default().fg(Color::Rgb(255, 128, 0))
+}
+
 pub fn prompt_cursor() -> Style {
-    Style::default().bg(Color::LightGreen).fg(Color::Green)
+    Style::default().bg(Color::Rgb(128, 64, 0))
+}
+
+pub fn prompt_cursor_dim() -> Style {
+    Style::default().bg(Color::DarkGray)
 }
 
 pub fn border() -> Style {

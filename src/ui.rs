@@ -48,10 +48,7 @@ fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
 }
 
 fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let text = Span::styled(
-        format!(">> {}", app.user_feedback_text),
-        styles::highlight(),
-    );
+    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::dim());
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(styles::border());

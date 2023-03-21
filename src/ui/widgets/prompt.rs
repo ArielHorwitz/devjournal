@@ -4,6 +4,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use tui::{
     backend::Backend,
     layout::Rect,
+    style::Style,
     text::Span,
     widgets::{Block, Borders, Clear},
     Frame,
@@ -24,6 +25,9 @@ pub struct PromptWidget<'a> {
     margin: usize,
     width_hint: f32,
     textarea: TextArea<'a>,
+    focus: bool,
+    style_title: Style,
+    style_border: Style,
 }
 
 impl<'a> PromptWidget<'a> {
@@ -32,12 +36,19 @@ impl<'a> PromptWidget<'a> {
             prompt_text: "Input:".to_string(),
             max_width: 60,
             margin: 1,
-            width_hint: 0.7,
+            width_hint: 1.0,
             textarea: TextArea::default(),
+            focus: true,
+            style_title: styles::title_highlighted(),
+            style_border: styles::border_highlighted(),
         };
-        widget.textarea.set_cursor_line_style(styles::prompt());
-        widget.textarea.set_cursor_style(styles::prompt_cursor());
+        widget.set_focus(true);
         widget
+    }
+
+    pub fn focus(mut self, focus: bool) -> PromptWidget<'a> {
+        self.set_focus(focus);
+        self
     }
 
     pub fn margin(mut self, margin: usize) -> PromptWidget<'a> {
@@ -68,6 +79,22 @@ impl<'a> PromptWidget<'a> {
         self.textarea.insert_str(text);
     }
 
+    pub fn set_focus(&mut self, focus: bool) {
+        self.focus = focus;
+        if self.focus {
+            self.style_title = styles::title_highlighted();
+            self.style_border = styles::border_highlighted();
+            self.textarea
+                .set_cursor_line_style(styles::prompt_highlighted());
+            self.textarea.set_cursor_style(styles::prompt_cursor());
+        } else {
+            self.style_title = styles::title();
+            self.style_border = styles::border();
+            self.textarea.set_cursor_line_style(styles::prompt());
+            self.textarea.set_cursor_style(styles::prompt_cursor_dim());
+        }
+    }
+
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
         let width = self
             .max_width
@@ -75,9 +102,9 @@ impl<'a> PromptWidget<'a> {
         let area = center_rect(width, 3, chunk, self.margin as u16);
         f.render_widget(Clear, area);
         let block = Block::default()
-            .title(Span::styled(&self.prompt_text, styles::prompt()))
+            .title(Span::styled(&self.prompt_text, self.style_title))
             .borders(Borders::ALL)
-            .border_style(styles::border_highlighted());
+            .border_style(self.style_border);
         let inner = block.inner(area);
         f.render_widget(block, area);
         f.render_widget(self.textarea.widget(), inner)
