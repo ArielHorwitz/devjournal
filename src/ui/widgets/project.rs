@@ -30,7 +30,8 @@ const DELETE_CHAR: char = '☒';
 
 enum PromptRequest {
     AddSubProject,
-    AddTask(usize),
+    AddTask,
+    RenameTask,
 }
 
 enum FileRequest {
@@ -139,6 +140,12 @@ impl<'a> ProjectWidget<'a> {
                 self.prompt_request = Some(PromptRequest::AddSubProject);
                 self.prompt.set_prompt_text("New Subproject Name: ");
             }
+            (KeyCode::Char('-'), KeyModifiers::ALT) => {
+                if self.project.subprojects.len() > 1 {
+                    self.project.subprojects.remove(self.subproject_focus);
+                    self.subproject_focus = self.subproject_focus.saturating_sub(1);
+                }
+            }
             (KeyCode::Char('l'), KeyModifiers::NONE) => {
                 self.subproject_focus =
                     (self.subproject_focus + 1) % self.project.subprojects.len();
@@ -152,7 +159,7 @@ impl<'a> ProjectWidget<'a> {
             }
             // Subproject operations
             (KeyCode::Char('n'), KeyModifiers::NONE) => {
-                self.prompt_request = Some(PromptRequest::AddTask(self.subproject_focus));
+                self.prompt_request = Some(PromptRequest::AddTask);
                 self.prompt.set_prompt_text(&format!(
                     "New Task For {}: ",
                     self.project.subprojects[self.subproject_focus].name
@@ -162,6 +169,13 @@ impl<'a> ProjectWidget<'a> {
                 self.project.subprojects[self.subproject_focus]
                     .tasks
                     .pop_selected();
+            }
+            (KeyCode::Char('r'), KeyModifiers::NONE) => {
+                self.prompt_request = Some(PromptRequest::RenameTask);
+                self.prompt.set_prompt_text(&format!(
+                    "Rename Task From: `{}`: ",
+                    self.project.subprojects[self.subproject_focus].name
+                ));
             }
             // Subproject navigation
             (KeyCode::Char('j'), KeyModifiers::NONE) => {
@@ -212,12 +226,25 @@ impl<'a> ProjectWidget<'a> {
                     self.prompt.set_text("");
                     match pr {
                         PromptRequest::AddSubProject => {
-                            self.project.subprojects.push(SubProject::new(&result_text));
+                            self.project
+                                .subprojects
+                                .insert(self.subproject_focus + 1, SubProject::new(&result_text));
+                            self.subproject_focus += 1;
                         }
-                        PromptRequest::AddTask(index) => {
-                            self.project.subprojects[index.clone()]
+                        PromptRequest::AddTask => {
+                            self.project.subprojects[self.subproject_focus]
                                 .tasks
                                 .add_item(Task::new(&result_text));
+                        }
+                        PromptRequest::RenameTask => {
+                            let subproject = &mut self.project.subprojects[self.subproject_focus];
+                            if let Some(task) = subproject.tasks.selected_value() {
+                                let new_task = Task {
+                                    desc: result_text,
+                                    ..task.clone()
+                                };
+                                subproject.tasks.replace_selected(new_task);
+                            }
                         }
                     };
                     self.prompt_request = None;
