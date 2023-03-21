@@ -32,21 +32,18 @@ pub struct App<'a> {
     quit_flag: bool,
     pub tab_index: usize,
     pub user_feedback_text: String,
-    pub help_text: String,
     pub filelist_widget: FileListWidget<'a>,
     pub project_widget: ProjectWidget<'a>,
 }
 
 impl<'a> App<'a> {
     pub fn new(title: &'a str, datadir: PathBuf) -> App<'a> {
-        let welcome = format!("Welcome to {title}.");
         App {
             title,
             datadir: datadir.clone(),
             quit_flag: false,
             tab_index: 0,
-            user_feedback_text: welcome.clone(),
-            help_text: welcome.clone(),
+            user_feedback_text: format!("Welcome to {title}."),
             filelist_widget: FileListWidget::new(datadir.to_str().unwrap()),
             project_widget: ProjectWidget::new(datadir.to_str().unwrap()),
         }

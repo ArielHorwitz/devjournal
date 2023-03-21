@@ -14,8 +14,8 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let chunks = Layout::default()
         .constraints(
             [
-                Constraint::Length(3),                                 // Tab bar
-                Constraint::Length(f.size().height.saturating_sub(5)), // Tab content
+                Constraint::Length(2),                                 // Tab bar
+                Constraint::Length(f.size().height.saturating_sub(4)), // Tab content
                 Constraint::Length(2),                                 // Status bar
             ]
             .as_ref(),
@@ -31,20 +31,33 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 }
 
 fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let titles = vec!["Console", "Debug"]
+    let block = Block::default()
+        .borders(Borders::BOTTOM)
+        .border_style(styles::border());
+    let inner = block.inner(chunk);
+    f.render_widget(block, chunk);
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![
+            Constraint::Length(1),
+            Constraint::Length(29),
+            Constraint::Length(chunk.width.saturating_sub(30)),
+        ])
+        .split(inner);
+    let project_name = Paragraph::new(Span::styled(
+        format!("Project: {}", app.project_widget.project_name()),
+        styles::title(),
+    ));
+    f.render_widget(project_name, chunks[1]);
+    let titles = vec!["Project", "Debug"]
         .iter()
         .map(|t| Spans::from(Span::styled(*t, styles::tab_dim())))
         .collect();
     let tabs = Tabs::new(titles)
-        .block(
-            Block::default()
-                .title(Span::styled(app.title, styles::title_dim()))
-                .borders(Borders::ALL)
-                .border_style(styles::border()),
-        )
+        .block(Block::default().borders(Borders::LEFT))
         .highlight_style(styles::tab())
         .select(app.tab_index);
-    f.render_widget(tabs, chunk);
+    f.render_widget(tabs, chunks[2]);
 }
 
 fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {

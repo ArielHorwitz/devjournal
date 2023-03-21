@@ -17,8 +17,8 @@ use std::{
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
-    text::{Span, Spans},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    text::Span,
+    widgets::{Block, Borders},
     Frame,
 };
 
@@ -71,28 +71,17 @@ impl<'a> ProjectWidget<'a> {
     }
 
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)])
-            .split(chunk);
-        self.draw_sidebar(f, chunks[0]);
-        self.draw_subprojects(f, chunks[1]);
+        // let chunks = Layout::default()
+        //     .direction(Direction::Horizontal)
+        //     .constraints([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)])
+        //     .split(chunk);
+        // self.draw_sidebar(f, chunks[0]);
+        self.draw_subprojects(f, chunk);
         if self.file_request.is_some() {
             self.filelist.draw(f, center_rect(35, 20, chunk, 1));
         } else if self.prompt_request.is_some() {
             self.prompt.draw(f, chunk);
         };
-    }
-
-    fn draw_sidebar<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
-        let block = Block::default()
-            .title(Span::styled(&self.project.name, styles::title_dim()))
-            .borders(Borders::ALL)
-            .border_style(styles::border());
-        let paragraph = Paragraph::new(Spans::from(format!("Project: {}", &self.project.name)))
-            .block(block)
-            .wrap(Wrap { trim: true });
-        f.render_widget(paragraph, chunk);
     }
 
     fn draw_subprojects<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
