@@ -96,13 +96,22 @@ impl<'a> ProjectWidget<'a> {
     }
 
     fn draw_subprojects<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
-        let subproject_count = self.project.len();
+        let subproject_count = self.project.len() as u32;
+        let small: u32 = 4;
+        let large: u32 = 5;
+        let total: u32 = small * (subproject_count - 1) + large;
+        let constraints: Vec<Constraint> = (0..subproject_count)
+            .map(|i| {
+                if i == self.project.subprojects.selected().unwrap() as u32 {
+                    Constraint::Ratio(large, total)
+                } else {
+                    Constraint::Ratio(small, total)
+                }
+            })
+            .collect();
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints(vec![
-                Constraint::Ratio(1, subproject_count as u32);
-                subproject_count
-            ])
+            .constraints(constraints)
             .split(chunk);
         for (index, subproject) in self.project.subprojects.iter().enumerate() {
             let mut border_style = styles::border();
