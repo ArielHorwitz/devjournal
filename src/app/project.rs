@@ -86,7 +86,13 @@ impl Project {
             .unwrap()
             .read_to_end(&mut encoded)
             .unwrap();
-        bincode::deserialize::<Project>(encoded.as_slice()).unwrap()
+        let mut project = bincode::deserialize::<Project>(encoded.as_slice()).unwrap();
+        for index in 0..project.len() {
+            project.subprojects.get_value(index).tasks.deselect();
+        }
+        project.subprojects.deselect();
+        project.subprojects.select_next();
+        project
     }
 
     pub fn save_file(&self, filepath: &PathBuf) {

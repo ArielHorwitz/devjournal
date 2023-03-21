@@ -88,6 +88,10 @@ impl<T> InteractiveList<T> {
         }
     }
 
+    pub fn get_value(&mut self, index: usize) -> &mut T {
+        &mut self.items[index]
+    }
+
     pub fn next_value(&mut self) -> Option<&mut T> {
         if let Some(index) = self.next_index() {
             return Some(&mut self.items[index]);
