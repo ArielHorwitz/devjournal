@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display},
-    fs::File,
-    io::{self, ErrorKind, Read},
+    fs::{self, File},
+    io::{Read, Write},
     path::PathBuf,
 };
 
@@ -58,17 +58,67 @@ impl Project {
         }
     }
 
-    pub fn from_file(filepath: &PathBuf) -> io::Result<Project> {
+    pub fn from_file(filepath: &PathBuf) -> Project {
         let mut encoded: Vec<u8> = Vec::new();
-        File::open(filepath)?.read_to_end(&mut encoded)?;
-        if let Ok(project) = bincode::deserialize::<Project>(encoded.as_slice()) {
-            Ok(project)
-        } else {
-            Err(io::Error::new(
-                ErrorKind::InvalidData,
-                "corrupt or unrecognized file",
-            ))
-        }
+        File::open(filepath)
+            .unwrap()
+            .read_to_end(&mut encoded)
+            .unwrap();
+        bincode::deserialize::<Project>(encoded.as_slice()).unwrap()
+    }
+
+    pub fn save_file(&self, datadir: &PathBuf) {
+        set_default_file(datadir, &self.name);
+        let filepath = datadir.join(&self.name);
+        let encoded = bincode::serialize(&self).unwrap();
+        let mut file = File::create(&filepath).unwrap();
+        file.write_all(&encoded).unwrap();
+    }
+}
+
+// fn load_file(datadir: &PathBuf, name: &str) -> Project {
+//     set_default_file(&self.datadir, self.active_file.to_str().unwrap())?;
+//     let mut action_name = format!("{LOAD_CHAR} Loaded");
+//     if !self.active_file.exists() {
+//         write_project_file(self.active_file.to_str().unwrap()).unwrap();
+//         action_name = format!("{CREATE_CHAR} Created");
+//     }
+//     self.project = Project::from_file(&self.active_file)?;
+//     for subproject in &mut self.project.subprojects {
+//         subproject.tasks.deselect();
+//     }
+//     self.set_feedback_text(&format!(
+//         "{action_name} file: {}",
+//         self.get_active_filename()
+//     ));
+//     self.refresh_file_list().unwrap();
+//     Ok(())
+// }
+
+fn delete_project_file(datadir: &PathBuf, name: &str) {
+    fs::remove_file(datadir.join(name)).unwrap();
+}
+
+fn set_default_file(datadir: &PathBuf, name: &str) {
+    fs::write(datadir.join(".config"), name).unwrap();
+}
+
+fn get_default_file(datadir: &PathBuf) -> Option<String> {
+    let config_path = datadir.join(".config");
+    if config_path.exists() == false {
+        File::create(&config_path).unwrap();
+    };
+    let mut encoded: Vec<u8> = Vec::new();
+    File::open(&config_path)
+        .unwrap()
+        .read_to_end(&mut encoded)
+        .unwrap();
+    let filename = String::from_utf8(encoded).unwrap();
+    let filepath = datadir.join(&filename);
+    if filepath == PathBuf::new() || filepath.ends_with(".config") || filepath.is_dir() {
+        None
+    } else {
+        Some(filename)
     }
 }
 

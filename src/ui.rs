@@ -6,7 +6,7 @@ use tui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, Cell, Row, Table, Tabs},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Tabs, Wrap},
     Frame,
 };
 
@@ -23,11 +23,11 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .split(f.size());
     draw_tab_bar(f, app, chunks[0]);
     match app.tab_index {
-        0 => draw_main_content(f, app, chunks[1]),
+        0 => app.project_widget.draw(f, chunks[1]),
         1 => draw_debug_tab(f, app, chunks[1]),
         _ => {}
     };
-    widgets::draw_feedback_text(f, app, chunks[2]);
+    draw_feedback_text(f, app, chunks[2]);
 }
 
 fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
@@ -47,19 +47,13 @@ fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     f.render_widget(tabs, chunk);
 }
 
-fn draw_main_content<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Ratio(1, 4), Constraint::Ratio(3, 4)])
-        .split(chunk);
-    widgets::draw_sidebar(f, app, chunks[0]);
+fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::dim());
     let block = Block::default()
-        .title(Span::styled(&app.project.name, styles::title()))
-        .borders(Borders::ALL)
+        .borders(Borders::TOP)
         .border_style(styles::border());
-    let inner = block.inner(chunks[1]);
-    f.render_widget(block, chunks[1]);
-    app.project_widget.draw(f, inner, &mut app.project);
+    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
+    f.render_widget(paragraph, chunk);
 }
 
 pub fn draw_debug_tab<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
