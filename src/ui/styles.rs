@@ -1,44 +1,16 @@
 use tui::style::{Color, Modifier, Style};
 
-pub fn list_normal() -> Style {
+// Layout
+pub fn title() -> Style {
     Style::default()
+        .fg(Color::Rgb(48, 255, 48))
+        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
 }
 
-pub fn list_highlight() -> Style {
+pub fn title_dim() -> Style {
     Style::default()
-        .bg(Color::Rgb(48, 12, 48))
-        .fg(Color::White)
+        .fg(Color::Rgb(64, 152, 64))
         .add_modifier(Modifier::BOLD)
-}
-
-pub fn dim() -> Style {
-    Style::default().fg(Color::DarkGray)
-}
-
-pub fn active_tab() -> Style {
-    Style::default()
-        .fg(Color::Magenta)
-        .add_modifier(Modifier::BOLD)
-}
-
-pub fn tab() -> Style {
-    Style::default().fg(Color::DarkGray)
-}
-
-pub fn prompt() -> Style {
-    Style::default().fg(Color::Green)
-}
-
-pub fn prompt_highlighted() -> Style {
-    Style::default().fg(Color::Rgb(255, 128, 0))
-}
-
-pub fn prompt_cursor() -> Style {
-    Style::default().bg(Color::Rgb(128, 64, 0))
-}
-
-pub fn prompt_cursor_dim() -> Style {
-    Style::default().bg(Color::DarkGray)
 }
 
 pub fn border() -> Style {
@@ -49,18 +21,54 @@ pub fn border_highlighted() -> Style {
     Style::default().fg(Color::Rgb(110, 0, 110))
 }
 
+// Text
 pub fn text() -> Style {
     Style::default().fg(Color::White)
 }
 
-pub fn title() -> Style {
+pub fn text_dim() -> Style {
+    Style::default().fg(Color::DarkGray)
+}
+
+pub fn list_text() -> Style {
+    Style::default().fg(Color::Rgb(128, 192, 255))
+}
+
+pub fn list_text_dim() -> Style {
+    Style::default().fg(Color::Rgb(64, 96, 128))
+}
+
+pub fn list_text_highlight() -> Style {
     Style::default()
-        .fg(Color::Rgb(64, 152, 64))
+        .bg(Color::Rgb(48, 12, 48))
+        .fg(Color::Rgb(128, 192, 255))
         .add_modifier(Modifier::BOLD)
 }
 
-pub fn title_highlighted() -> Style {
+// Prompt
+pub fn prompt() -> Style {
+    Style::default().fg(Color::Rgb(255, 128, 0))
+}
+
+pub fn prompt_dim() -> Style {
+    Style::default().fg(Color::Rgb(128, 64, 0))
+}
+
+pub fn prompt_cursor() -> Style {
+    Style::default().bg(Color::Rgb(128, 64, 0))
+}
+
+pub fn prompt_cursor_dim() -> Style {
+    Style::default().bg(Color::DarkGray)
+}
+
+// Tabs
+pub fn tab() -> Style {
     Style::default()
-        .fg(Color::Rgb(48, 255, 48))
+        .fg(Color::Magenta)
         .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+}
+
+pub fn tab_dim() -> Style {
+    Style::default().fg(Color::DarkGray)
 }

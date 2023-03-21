@@ -46,7 +46,7 @@ impl<'a> FileListWidget<'a> {
             filelist: List::new(),
             focus: Focus::FileList,
             title: "Files".to_string(),
-            style_title: styles::title_highlighted(),
+            style_title: styles::title(),
             style_border: styles::border_highlighted(),
         };
         widget.refresh_filelist();
@@ -103,8 +103,10 @@ impl<'a> FileListWidget<'a> {
                     .borders(Borders::ALL)
                     .border_style(self.style_border),
             )
-            .style(styles::list_normal())
-            .highlight_style(styles::list_highlight());
+            .focus(match &self.focus {
+                Focus::FileList => true,
+                _ => false,
+            });
         f.render_widget(file_list, chunks[0]);
         self.prompt.draw(f, chunks[1]);
     }
@@ -135,8 +137,8 @@ impl<'a> FileListWidget<'a> {
     fn set_focus(&mut self, focus: Focus) {
         self.focus = focus;
         self.style_title = match &self.focus {
-            Focus::FileList => styles::title_highlighted(),
-            _ => styles::title(),
+            Focus::FileList => styles::title(),
+            _ => styles::title_dim(),
         };
         self.style_border = match &self.focus {
             Focus::FileList => styles::border_highlighted(),

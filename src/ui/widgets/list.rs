@@ -1,10 +1,11 @@
 use tui::{
     buffer::Buffer,
     layout::Rect,
-    style::Style,
     text::Spans,
     widgets::{Block, Widget},
 };
+
+use crate::ui::styles;
 
 #[derive(Debug, Clone)]
 pub struct ListWidget<'a> {
@@ -14,27 +15,22 @@ pub struct ListWidget<'a> {
     items: Vec<String>,
     /// Item to highlight
     selected: Option<usize>,
-    /// Style to for item text
-    style: Style,
-    /// Style for selected item text
-    style_selected: Style,
     /// Bullet point for items
     bullet: char,
     /// Bullet point for selected item
     bullet_selected: char,
+    pub focus: bool,
 }
 
-#[allow(dead_code)]
 impl<'a> ListWidget<'a> {
     pub fn new(items: Vec<String>, highlighted: Option<usize>) -> ListWidget<'a> {
         ListWidget {
             block: None,
-            style: Default::default(),
             items,
             selected: highlighted,
-            style_selected: Default::default(),
             bullet: '•',
             bullet_selected: '►',
+            focus: true,
         }
     }
 
@@ -43,30 +39,15 @@ impl<'a> ListWidget<'a> {
         self
     }
 
-    pub fn style(mut self, style: Style) -> ListWidget<'a> {
-        self.style = style;
-        self
-    }
-
-    pub fn highlight_style(mut self, style: Style) -> ListWidget<'a> {
-        self.style_selected = style;
-        self
-    }
-
-    pub fn bullet(mut self, bullet: char) -> ListWidget<'a> {
-        self.bullet = bullet;
-        self
-    }
-
-    pub fn bullet_selected(mut self, bullet: char) -> ListWidget<'a> {
-        self.bullet_selected = bullet;
+    pub fn focus(mut self, focus: bool) -> ListWidget<'a> {
+        self.focus = focus;
         self
     }
 }
 
 impl<'a> Widget for ListWidget<'a> {
     fn render(mut self, area: Rect, buf: &mut Buffer) {
-        buf.set_style(area, self.style);
+        // buf.set_style(area, styles::default);
         let area = match self.block.take() {
             Some(b) => {
                 let inner_area = b.inner(area);
@@ -80,14 +61,23 @@ impl<'a> Widget for ListWidget<'a> {
             return;
         }
 
+        let style_normal = match self.focus {
+            true => styles::list_text(),
+            false => styles::list_text_dim(),
+        };
+        let style_selected = match self.focus {
+            true => styles::list_text_highlight(),
+            false => styles::list_text_dim(),
+        };
+
         let x = area.left();
         let mut y = area.top();
         let width = area.width;
         for (i, text) in self.items.iter().enumerate() {
-            let mut style = self.style;
+            let mut style = style_normal;
             let mut text = text.clone();
             if self.selected == Some(i) {
-                style = self.style_selected;
+                style = style_selected;
                 text = format!("{} {}", self.bullet_selected, text);
             } else {
                 text = format!("{} {}", self.bullet, text);

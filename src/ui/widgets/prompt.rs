@@ -39,7 +39,7 @@ impl<'a> PromptWidget<'a> {
             width_hint: 1.0,
             textarea: TextArea::default(),
             focus: true,
-            style_title: styles::title_highlighted(),
+            style_title: styles::title(),
             style_border: styles::border_highlighted(),
         };
         widget.set_focus(true);
@@ -82,15 +82,14 @@ impl<'a> PromptWidget<'a> {
     pub fn set_focus(&mut self, focus: bool) {
         self.focus = focus;
         if self.focus {
-            self.style_title = styles::title_highlighted();
+            self.style_title = styles::title();
             self.style_border = styles::border_highlighted();
-            self.textarea
-                .set_cursor_line_style(styles::prompt_highlighted());
+            self.textarea.set_cursor_line_style(styles::prompt());
             self.textarea.set_cursor_style(styles::prompt_cursor());
         } else {
-            self.style_title = styles::title();
+            self.style_title = styles::title_dim();
             self.style_border = styles::border();
-            self.textarea.set_cursor_line_style(styles::prompt());
+            self.textarea.set_cursor_line_style(styles::prompt_dim());
             self.textarea.set_cursor_style(styles::prompt_cursor_dim());
         }
     }

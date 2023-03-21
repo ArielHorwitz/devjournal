@@ -33,22 +33,22 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let titles = vec!["Console", "Debug"]
         .iter()
-        .map(|t| Spans::from(Span::styled(*t, styles::tab())))
+        .map(|t| Spans::from(Span::styled(*t, styles::tab_dim())))
         .collect();
     let tabs = Tabs::new(titles)
         .block(
             Block::default()
-                .title(Span::styled(app.title, styles::title()))
+                .title(Span::styled(app.title, styles::title_dim()))
                 .borders(Borders::ALL)
                 .border_style(styles::border()),
         )
-        .highlight_style(styles::active_tab())
+        .highlight_style(styles::tab())
         .select(app.tab_index);
     f.render_widget(tabs, chunk);
 }
 
 fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::dim());
+    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::text_dim());
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(styles::border());
@@ -103,7 +103,7 @@ where
     let table = Table::new(items)
         .block(
             Block::default()
-                .title(Span::styled("Colors", styles::title()))
+                .title(Span::styled("Colors", styles::title_dim()))
                 .borders(Borders::ALL)
                 .border_style(styles::border()),
         )

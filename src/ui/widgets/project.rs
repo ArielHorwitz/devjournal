@@ -86,7 +86,7 @@ impl<'a> ProjectWidget<'a> {
 
     fn draw_sidebar<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
         let block = Block::default()
-            .title(Span::styled(&self.project.name, styles::title()))
+            .title(Span::styled(&self.project.name, styles::title_dim()))
             .borders(Borders::ALL)
             .border_style(styles::border());
         let paragraph = Paragraph::new(Spans::from(format!("Project: {}", &self.project.name)))
@@ -106,12 +106,12 @@ impl<'a> ProjectWidget<'a> {
             .split(chunk);
         for (index, subproject) in self.project.subprojects.iter().enumerate() {
             let mut border_style = styles::border();
-            let mut title_style = styles::title();
-            let mut highlight_style = styles::list_normal();
+            let mut title_style = styles::title_dim();
+            let mut focus = false;
             if index == self.subproject_focus {
                 border_style = styles::border_highlighted();
-                title_style = styles::title_highlighted();
-                highlight_style = styles::list_highlight();
+                title_style = styles::title();
+                focus = true;
             }
             let widget =
                 ListWidget::new(subproject.tasks.as_strings(), subproject.tasks.selected())
@@ -121,8 +121,7 @@ impl<'a> ProjectWidget<'a> {
                             .borders(Borders::ALL)
                             .border_style(border_style),
                     )
-                    .style(styles::list_normal())
-                    .highlight_style(highlight_style);
+                    .focus(focus);
             f.render_widget(widget, chunks[index]);
         }
     }
