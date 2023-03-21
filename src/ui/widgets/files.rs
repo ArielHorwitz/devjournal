@@ -1,10 +1,8 @@
 use super::{list::ListWidget, prompt::PromptWidget};
 use crate::{app::list::InteractiveList, ui::styles};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pathdiff::diff_paths;
 use std::{
-    fs::{read_dir, remove_file},
-    io,
+    fs::{self, read_dir, remove_file},
     path::PathBuf,
 };
 use tui::{
@@ -59,27 +57,23 @@ impl<'a> FileListWidget<'a> {
     }
 
     pub fn refresh_filelist(&mut self) {
-        let mut entries = read_dir(&self.datadir)
+        let mut entries: Vec<PathBuf> = read_dir(&self.datadir)
             .unwrap()
-            .map(|res| {
-                res.map(|e| {
-                    diff_paths(e.path(), &self.datadir)
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string()
-                })
-            })
-            .filter(|x| match x {
-                Err(_) => false,
-                Ok(s) => !s.ends_with(".config"),
-            })
-            .collect::<Result<Vec<String>, io::Error>>()
-            .unwrap();
-        entries.sort();
+            .map(|res| res.unwrap().path())
+            .filter(|x| x.is_file() && !x.ends_with(".config"))
+            .collect();
+        entries.sort_by_key(|file| {
+            fs::metadata(file)
+                .unwrap()
+                .modified()
+                .unwrap()
+                .elapsed()
+                .unwrap()
+        });
         self.filelist.clear_items();
         for file in entries {
-            self.filelist.add_item(file);
+            self.filelist
+                .add_item(file.file_name().unwrap().to_str().unwrap().to_string());
         }
     }
 
