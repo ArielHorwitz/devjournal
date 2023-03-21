@@ -137,20 +137,25 @@ impl<'a> ProjectWidget<'a> {
     }
 
     fn handle_subproject_event(&mut self, key: KeyEvent) {
-        let selected_project = self.project.subprojects.selected_value();
+        let selected_subproject = self.project.subprojects.selected_value();
         match (key.code, key.modifiers) {
             // Project operations
             (KeyCode::Char('r'), KeyModifiers::ALT) => {
                 self.prompt_request = Some(PromptRequest::RenameProject);
+                self.prompt.set_text(&self.project.name);
                 self.prompt.set_prompt_text("New Project Name:");
             }
             (KeyCode::Char('R'), KeyModifiers::SHIFT) => {
-                self.prompt_request = Some(PromptRequest::RenameSubProject);
-                self.prompt.set_prompt_text("New Subproject Name:");
+                if let Some(subproject) = selected_subproject {
+                    self.prompt_request = Some(PromptRequest::RenameSubProject);
+                    self.prompt.set_text(&subproject.name);
+                    self.prompt.set_prompt_text("New Subproject Name:");
+                }
             }
             (KeyCode::Char('='), KeyModifiers::ALT) => {
                 self.prompt_request = Some(PromptRequest::AddSubProject);
                 self.prompt.set_prompt_text("New Subproject Name:");
+                self.prompt.set_text("");
             }
             (KeyCode::Char('-'), KeyModifiers::ALT) => {
                 self.project.subprojects.pop_selected();
@@ -164,7 +169,7 @@ impl<'a> ProjectWidget<'a> {
                 self.project.subprojects.move_up().ok();
             }
             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
-                if let Some(subproject) = selected_project {
+                if let Some(subproject) = selected_subproject {
                     if let Some(task) = subproject.tasks.pop_selected() {
                         let target_subproject = self.project.subprojects.next_value().unwrap();
                         target_subproject.tasks.insert_item(
@@ -177,7 +182,7 @@ impl<'a> ProjectWidget<'a> {
                 }
             }
             (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
-                if let Some(subproject) = selected_project {
+                if let Some(subproject) = selected_subproject {
                     if let Some(task) = subproject.tasks.pop_selected() {
                         let target_subproject = self.project.subprojects.prev_value().unwrap();
                         target_subproject.tasks.insert_item(
@@ -193,43 +198,45 @@ impl<'a> ProjectWidget<'a> {
             (KeyCode::Char('n'), KeyModifiers::NONE) => {
                 self.prompt_request = Some(PromptRequest::AddTask);
                 self.prompt.set_prompt_text("New Task:");
+                self.prompt.set_text("");
             }
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
-                if let Some(subproject) = selected_project {
+                if let Some(subproject) = selected_subproject {
                     subproject.tasks.pop_selected();
                 }
             }
             (KeyCode::Char('r'), KeyModifiers::NONE) => {
-                if let Some(subproject) = selected_project {
-                    self.prompt_request = Some(PromptRequest::RenameTask);
-                    self.prompt.set_prompt_text("Rename Task:");
-                    self.prompt
-                        .set_text(&subproject.tasks.selected_value().unwrap().desc);
+                if let Some(subproject) = selected_subproject {
+                    if let Some(task) = subproject.tasks.selected_value() {
+                        self.prompt_request = Some(PromptRequest::RenameTask);
+                        self.prompt.set_prompt_text("Rename Task:");
+                        self.prompt.set_text(&task.desc);
+                    }
                 }
             }
             // Subproject navigation
             (KeyCode::Esc, KeyModifiers::NONE) => {
-                if let Some(subproject) = selected_project {
+                if let Some(subproject) = selected_subproject {
                     subproject.tasks.deselect();
                 }
             }
             (KeyCode::Char('j'), KeyModifiers::NONE) => {
-                if let Some(subproject) = selected_project {
+                if let Some(subproject) = selected_subproject {
                     subproject.tasks.select_next();
                 }
             }
             (KeyCode::Char('k'), KeyModifiers::NONE) => {
-                if let Some(subproject) = selected_project {
+                if let Some(subproject) = selected_subproject {
                     subproject.tasks.select_prev();
                 }
             }
             (KeyCode::Char('j'), KeyModifiers::CONTROL) => {
-                if let Some(subproject) = selected_project {
+                if let Some(subproject) = selected_subproject {
                     subproject.tasks.move_down().ok();
                 }
             }
             (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
-                if let Some(subproject) = selected_project {
+                if let Some(subproject) = selected_subproject {
                     subproject.tasks.move_up().ok();
                 }
             }
