@@ -1,5 +1,5 @@
 use super::{list::ListWidget, prompt::PromptWidget};
-use crate::{app::project::List, ui::styles};
+use crate::{app::list::InteractiveList, ui::styles};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use pathdiff::diff_paths;
 use std::{
@@ -31,7 +31,7 @@ enum Focus {
 pub struct FileListWidget<'a> {
     prompt: PromptWidget<'a>,
     datadir: String,
-    filelist: List<String>,
+    filelist: InteractiveList<String>,
     focus: Focus,
     title: String,
     style_title: Style,
@@ -43,7 +43,7 @@ impl<'a> FileListWidget<'a> {
         let mut widget = FileListWidget {
             prompt: PromptWidget::default().focus(false).margin(0),
             datadir: datadir.to_string(),
-            filelist: List::new(),
+            filelist: InteractiveList::new(),
             focus: Focus::FileList,
             title: "Files".to_string(),
             style_title: styles::title(),

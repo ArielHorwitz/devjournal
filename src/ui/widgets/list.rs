@@ -1,11 +1,10 @@
+use crate::ui::styles;
 use tui::{
     buffer::Buffer,
     layout::Rect,
     text::Spans,
     widgets::{Block, Widget},
 };
-
-use crate::ui::styles;
 
 #[derive(Debug, Clone)]
 pub struct ListWidget<'a> {

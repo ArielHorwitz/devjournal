@@ -1,4 +1,5 @@
 /// App state and logic
+pub mod list;
 pub mod project;
 use crate::ui::{
     self,
