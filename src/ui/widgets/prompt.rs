@@ -21,6 +21,8 @@ pub struct PromptWidget<'a> {
     prompt_text: String,
     /// Maximum width of the widget
     max_width: u16,
+    margin: usize,
+    width_hint: f32,
     textarea: TextArea<'a>,
 }
 
@@ -29,11 +31,23 @@ impl<'a> PromptWidget<'a> {
         let mut widget = PromptWidget {
             prompt_text: "Input:".to_string(),
             max_width: 60,
+            margin: 1,
+            width_hint: 0.7,
             textarea: TextArea::default(),
         };
         widget.textarea.set_cursor_line_style(styles::prompt());
-        widget.textarea.set_cursor_style(styles::prompt());
+        widget.textarea.set_cursor_style(styles::prompt_cursor());
         widget
+    }
+
+    pub fn margin(mut self, margin: usize) -> PromptWidget<'a> {
+        self.margin = margin;
+        self
+    }
+
+    pub fn width_hint(mut self, hint: f32) -> PromptWidget<'a> {
+        self.width_hint = hint;
+        self
     }
 
     pub fn max_width(mut self, width: usize) -> PromptWidget<'a> {
@@ -60,8 +74,10 @@ impl<'a> PromptWidget<'a> {
     }
 
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
-        let width = self.max_width.min((chunk.width as f32 * 0.7) as u16);
-        let area = center_rect(width, 3, chunk);
+        let width = self
+            .max_width
+            .min((chunk.width as f32 * self.width_hint) as u16);
+        let area = center_rect(width, 3, chunk, self.margin as u16);
         f.render_widget(Clear, area);
         let block = Block::default()
             .title(Span::styled(&self.prompt_text, styles::prompt()))

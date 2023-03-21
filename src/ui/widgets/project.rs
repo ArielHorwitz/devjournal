@@ -9,17 +9,12 @@ use crate::{
     ui::styles,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pathdiff::diff_paths;
-use std::{
-    fs::{remove_file, File},
-    io::{self, ErrorKind},
-    path::{Path, PathBuf},
-};
+use std::path::PathBuf;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     text::{Span, Spans},
-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
 
@@ -69,12 +64,12 @@ impl<'a> ProjectWidget<'a> {
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Ratio(1, 4), Constraint::Ratio(3, 4)])
+            .constraints([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)])
             .split(chunk);
         self.draw_sidebar(f, chunks[0]);
         self.draw_subprojects(f, chunks[1]);
         if self.file_request.is_some() {
-            self.filelist.draw(f, center_rect(25, 20, chunk));
+            self.filelist.draw(f, center_rect(35, 20, chunk, 1));
         } else if self.prompt_request.is_some() {
             self.prompt.draw(f, chunk);
         };
@@ -138,7 +133,7 @@ impl<'a> ProjectWidget<'a> {
             // Project operations
             (KeyCode::Char('='), KeyModifiers::ALT) => {
                 self.prompt_request = Some(PromptRequest::AddSubProject);
-                self.prompt.set_prompt_text("New Subproject Name: ");
+                self.prompt.set_prompt_text("New Subproject Name:");
             }
             (KeyCode::Char('-'), KeyModifiers::ALT) => {
                 if self.project.subprojects.len() > 1 {
@@ -160,10 +155,7 @@ impl<'a> ProjectWidget<'a> {
             // Subproject operations
             (KeyCode::Char('n'), KeyModifiers::NONE) => {
                 self.prompt_request = Some(PromptRequest::AddTask);
-                self.prompt.set_prompt_text(&format!(
-                    "New Task For {}: ",
-                    self.project.subprojects[self.subproject_focus].name
-                ));
+                self.prompt.set_prompt_text("New Task:");
             }
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
                 self.project.subprojects[self.subproject_focus]
@@ -172,10 +164,14 @@ impl<'a> ProjectWidget<'a> {
             }
             (KeyCode::Char('r'), KeyModifiers::NONE) => {
                 self.prompt_request = Some(PromptRequest::RenameTask);
-                self.prompt.set_prompt_text(&format!(
-                    "Rename Task From: `{}`: ",
-                    self.project.subprojects[self.subproject_focus].name
-                ));
+                self.prompt.set_prompt_text("Rename Task:");
+                self.prompt.set_text(
+                    &self.project.subprojects[self.subproject_focus]
+                        .tasks
+                        .selected_value()
+                        .unwrap()
+                        .desc,
+                );
             }
             // Subproject navigation
             (KeyCode::Char('j'), KeyModifiers::NONE) => {
@@ -204,6 +200,8 @@ impl<'a> ProjectWidget<'a> {
             (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
                 self.file_request = Some(FileRequest::Load);
                 self.filelist.refresh_filelist();
+                self.filelist.set_title_text("Open Project:");
+                self.filelist.set_prompt_text("Create New File:");
             }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                 self.project.save_file(&self.datadir);
@@ -212,6 +210,8 @@ impl<'a> ProjectWidget<'a> {
             (KeyCode::Char('s'), KeyModifiers::ALT) => {
                 self.file_request = Some(FileRequest::Save);
                 self.filelist.refresh_filelist();
+                self.filelist.set_title_text("Save Project:");
+                self.filelist.set_prompt_text("Save File As:");
             }
             _ => (),
         };

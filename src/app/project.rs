@@ -95,10 +95,6 @@ impl Project {
 //     Ok(())
 // }
 
-fn delete_project_file(datadir: &PathBuf, name: &str) {
-    fs::remove_file(datadir.join(name)).unwrap();
-}
-
 fn set_default_file(datadir: &PathBuf, name: &str) {
     fs::write(datadir.join(".config"), name).unwrap();
 }

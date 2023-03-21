@@ -36,6 +36,10 @@ pub fn prompt() -> Style {
     Style::default().fg(Color::Green)
 }
 
+pub fn prompt_cursor() -> Style {
+    Style::default().bg(Color::LightGreen).fg(Color::Green)
+}
+
 pub fn border() -> Style {
     Style::default().fg(Color::DarkGray)
 }

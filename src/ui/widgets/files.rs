@@ -2,7 +2,11 @@ use super::{list::ListWidget, prompt::PromptWidget};
 use crate::{app::project::List, ui::styles};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use pathdiff::diff_paths;
-use std::{fs, io};
+use std::{
+    fs::{read_dir, remove_file},
+    io,
+    path::PathBuf,
+};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -11,25 +15,43 @@ use tui::{
     Frame,
 };
 
+pub enum FileListResult {
+    AwaitingResult,
+    Feedback(String),
+    Result(String),
+    Cancelled,
+}
+
+enum Focus {
+    FileList,
+    Prompt,
+}
+
 pub struct FileListWidget<'a> {
     prompt: PromptWidget<'a>,
     datadir: String,
     filelist: List<String>,
     focus: Focus,
+    title: String,
 }
 
 impl<'a> FileListWidget<'a> {
     pub fn new(datadir: &str) -> FileListWidget<'a> {
         FileListWidget {
-            prompt: PromptWidget::default(),
+            prompt: PromptWidget::default().width_hint(1.).margin(0),
             datadir: datadir.to_string(),
             filelist: List::new(),
             focus: Focus::FileList,
+            title: "Files".to_string(),
         }
     }
 
+    pub fn set_title_text(&mut self, text: &str) {
+        self.title = text.to_string();
+    }
+
     pub fn refresh_filelist(&mut self) {
-        let mut entries = fs::read_dir(&self.datadir)
+        let mut entries = read_dir(&self.datadir)
             .unwrap()
             .map(|res| {
                 res.map(|e| {
@@ -53,16 +75,27 @@ impl<'a> FileListWidget<'a> {
         }
     }
 
+    pub fn set_prompt_text(&mut self, text: &str) {
+        self.prompt.set_prompt_text(text);
+    }
+
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
         f.render_widget(Clear, chunk);
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(100), Constraint::Length(3)])
+            .constraints([
+                Constraint::Length(chunk.height.saturating_sub(3)),
+                Constraint::Length(3),
+            ])
             .split(chunk);
+        let files_title_style = match self.focus {
+            Focus::FileList => styles::title_highlighted(),
+            _ => styles::title(),
+        };
         let file_list = ListWidget::new(self.filelist.as_strings(), self.filelist.selected())
             .block(
                 Block::default()
-                    .title(Span::styled("Files", styles::title_highlighted()))
+                    .title(Span::styled(&self.title, files_title_style))
                     .borders(Borders::ALL)
                     .border_style(styles::border_highlighted()),
             )
@@ -73,20 +106,41 @@ impl<'a> FileListWidget<'a> {
     }
 
     pub fn handle_event(&mut self, key: KeyEvent) -> FileListResult {
+        match self.handle_event_globals(key) {
+            FileListResult::AwaitingResult => match self.focus {
+                Focus::FileList => self.handle_event_list(key),
+                Focus::Prompt => self.handle_event_prompt(key),
+            },
+            result => result,
+        }
+    }
+
+    pub fn handle_event_globals(&mut self, key: KeyEvent) -> FileListResult {
         match (key.code, key.modifiers) {
             (KeyCode::Esc, KeyModifiers::NONE) => {
                 return FileListResult::Cancelled;
             }
             (KeyCode::F(5), KeyModifiers::NONE) => {
                 self.refresh_filelist();
-                return FileListResult::Feedback("Refreshed file list.".to_string());
+                FileListResult::AwaitingResult
+            }
+            _ => return FileListResult::AwaitingResult,
+        }
+    }
+
+    pub fn handle_event_list(&mut self, key: KeyEvent) -> FileListResult {
+        match (key.code, key.modifiers) {
+            (KeyCode::Tab, KeyModifiers::NONE) => {
+                self.focus = Focus::Prompt;
+                return FileListResult::AwaitingResult;
             }
             (KeyCode::Char('j'), KeyModifiers::NONE) => self.filelist.select_next(),
             (KeyCode::Char('k'), KeyModifiers::NONE) => self.filelist.select_prev(),
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
-                if let Some(filename) = self.filelist.pop_selected() {
-                    // TODO delete file
-                    return FileListResult::Feedback(format!("Deleted file: {filename}"));
+                if let Some(name) = self.filelist.pop_selected() {
+                    remove_file(PathBuf::from(&self.datadir).join(&name)).unwrap();
+                    self.refresh_filelist();
+                    return FileListResult::Feedback(format!("Deleted project file: {name}"));
                 }
             }
             (KeyCode::Enter, KeyModifiers::NONE) => {
@@ -98,36 +152,18 @@ impl<'a> FileListWidget<'a> {
         }
         FileListResult::AwaitingResult
     }
-}
 
-pub enum FileListResult {
-    AwaitingResult,
-    Feedback(String),
-    Result(String),
-    Cancelled,
-}
-
-enum Focus {
-    FileList,
-    Prompt,
-}
-
-fn get_filelist(datadir: &str) -> io::Result<Vec<String>> {
-    let mut entries = fs::read_dir(datadir)?
-        .map(|res| {
-            res.map(|e| {
-                diff_paths(e.path(), datadir)
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string()
-            })
-        })
-        .filter(|x| match x {
-            Err(_) => false,
-            Ok(s) => !s.ends_with(".config"),
-        })
-        .collect::<Result<Vec<_>, io::Error>>()?;
-    entries.sort();
-    Ok(entries)
+    pub fn handle_event_prompt(&mut self, key: KeyEvent) -> FileListResult {
+        match (key.code, key.modifiers) {
+            (KeyCode::Tab, KeyModifiers::NONE) => {
+                self.focus = Focus::FileList;
+                FileListResult::AwaitingResult
+            }
+            (KeyCode::Enter, KeyModifiers::NONE) => FileListResult::Result(self.prompt.get_text()),
+            _ => {
+                self.prompt.handle_event(key);
+                FileListResult::AwaitingResult
+            }
+        }
+    }
 }
