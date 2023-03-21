@@ -50,11 +50,6 @@ impl<'a> PromptWidget<'a> {
         self
     }
 
-    pub fn max_width(mut self, width: usize) -> PromptWidget<'a> {
-        self.max_width = width as u16;
-        self
-    }
-
     pub fn set_prompt_text(&mut self, text: &str) {
         self.prompt_text = text.to_string();
     }
@@ -94,7 +89,7 @@ impl<'a> PromptWidget<'a> {
             KeyCode::Enter => PromptEvent::Result(self.get_text()),
             _ => {
                 self.textarea.input(key);
-                PromptEvent::AwaitingResult(self.get_text())
+                return PromptEvent::AwaitingResult(self.get_text());
             }
         }
     }

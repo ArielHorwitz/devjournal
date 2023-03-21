@@ -37,13 +37,16 @@ pub struct FileListWidget<'a> {
 
 impl<'a> FileListWidget<'a> {
     pub fn new(datadir: &str) -> FileListWidget<'a> {
-        FileListWidget {
+        let mut widget = FileListWidget {
             prompt: PromptWidget::default().width_hint(1.).margin(0),
             datadir: datadir.to_string(),
             filelist: List::new(),
             focus: Focus::FileList,
             title: "Files".to_string(),
-        }
+        };
+        widget.refresh_filelist();
+        widget.filelist.select_next();
+        widget
     }
 
     pub fn set_title_text(&mut self, text: &str) {
@@ -159,7 +162,11 @@ impl<'a> FileListWidget<'a> {
                 self.focus = Focus::FileList;
                 FileListResult::AwaitingResult
             }
-            (KeyCode::Enter, KeyModifiers::NONE) => FileListResult::Result(self.prompt.get_text()),
+            (KeyCode::Enter, KeyModifiers::NONE) => {
+                let result_text = self.prompt.get_text();
+                self.prompt.set_text("");
+                FileListResult::Result(result_text)
+            }
             _ => {
                 self.prompt.handle_event(key);
                 FileListResult::AwaitingResult

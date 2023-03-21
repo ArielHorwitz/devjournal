@@ -1,6 +1,3 @@
-use crate::app::project::List;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::fmt::Display;
 use tui::{
     buffer::Buffer,
     layout::Rect,
@@ -8,26 +5,6 @@ use tui::{
     text::Spans,
     widgets::{Block, Widget},
 };
-
-pub fn handle_event<T: Clone + Display>(list: &mut List<T>, key: KeyEvent) -> Result<(), ()> {
-    match (key.code, key.modifiers) {
-        (KeyCode::Esc, _) => list.deselect(),
-        (KeyCode::Up, KeyModifiers::NONE) => list.select_prev(),
-        (KeyCode::Down, KeyModifiers::NONE) => list.select_next(),
-        (KeyCode::Up, KeyModifiers::CONTROL) => list.move_up().unwrap_or(()),
-        (KeyCode::Down, KeyModifiers::CONTROL) => list.move_down().unwrap_or(()),
-        (KeyCode::Char('k'), KeyModifiers::NONE) => list.select_prev(),
-        (KeyCode::Char('j'), KeyModifiers::NONE) => list.select_next(),
-        (KeyCode::Char('k'), KeyModifiers::CONTROL) => list.move_up().unwrap_or(()),
-        (KeyCode::Char('j'), KeyModifiers::CONTROL) => list.move_down().unwrap_or(()),
-        (KeyCode::Delete, KeyModifiers::NONE) => {
-            list.pop_selected();
-        }
-        (KeyCode::Delete, KeyModifiers::CONTROL) => list.clear_items(),
-        _ => return Err(()),
-    };
-    Ok(())
-}
 
 #[derive(Debug, Clone)]
 pub struct ListWidget<'a> {

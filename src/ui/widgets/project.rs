@@ -9,7 +9,11 @@ use crate::{
     ui::styles,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::path::PathBuf;
+use std::{
+    fs::{write, File},
+    io::Read,
+    path::PathBuf,
+};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -18,10 +22,10 @@ use tui::{
     Frame,
 };
 
-const CREATE_CHAR: char = '⁕';
-const LOAD_CHAR: char = '★';
-const SAVE_CHAR: char = '☑';
-const DELETE_CHAR: char = '☒';
+// const CREATE_CHAR: char = '⁕';
+// const LOAD_CHAR: char = '★';
+// const SAVE_CHAR: char = '☑';
+// const DELETE_CHAR: char = '☒';
 
 enum PromptRequest {
     AddSubProject,
@@ -46,9 +50,14 @@ pub struct ProjectWidget<'a> {
 
 impl<'a> ProjectWidget<'a> {
     pub fn new(datadir: &str) -> ProjectWidget<'a> {
+        let datadir_path = PathBuf::from(datadir);
+        let project = match get_default_file(&datadir_path) {
+            Some(name) => Project::from_file(&datadir_path.join(name)),
+            None => Project::new("New Project", "Tasks"),
+        };
         ProjectWidget {
-            datadir: PathBuf::from(datadir.clone()),
-            project: Project::new("New Project", "Tasks"),
+            datadir: datadir_path,
+            project,
             prompt: PromptWidget::default(),
             subproject_focus: 0,
             prompt_request: None,
@@ -174,6 +183,11 @@ impl<'a> ProjectWidget<'a> {
                 );
             }
             // Subproject navigation
+            (KeyCode::Esc, KeyModifiers::NONE) => {
+                self.project.subprojects[self.subproject_focus]
+                    .tasks
+                    .deselect();
+            }
             (KeyCode::Char('j'), KeyModifiers::NONE) => {
                 self.project.subprojects[self.subproject_focus]
                     .tasks
@@ -204,7 +218,8 @@ impl<'a> ProjectWidget<'a> {
                 self.filelist.set_prompt_text("Create New File:");
             }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
-                self.project.save_file(&self.datadir);
+                self.project
+                    .save_file(&self.datadir.join(self.project_filename()));
                 self.filelist.refresh_filelist();
             }
             (KeyCode::Char('s'), KeyModifiers::ALT) => {
@@ -263,14 +278,44 @@ impl<'a> ProjectWidget<'a> {
                     match fr {
                         FileRequest::Load => {
                             self.project = Project::from_file(&self.datadir.join(&name));
+                            set_default_file(&self.datadir, &name);
                         }
                         FileRequest::Save => {
-                            self.project.save_file(&self.datadir);
+                            let filename = self.project_filename();
+                            self.project.save_file(&self.datadir.join(&filename));
+                            set_default_file(&self.datadir, &filename);
                         }
                     }
                     self.file_request = None;
                 }
             }
         }
+    }
+
+    fn project_filename(&self) -> String {
+        self.project.name.replace(" ", "_").to_lowercase()
+    }
+}
+
+fn set_default_file(datadir: &PathBuf, name: &str) {
+    write(datadir.join(".config"), name).unwrap();
+}
+
+fn get_default_file(datadir: &PathBuf) -> Option<String> {
+    let config_path = datadir.join(".config");
+    if config_path.exists() == false {
+        File::create(&config_path).unwrap();
+    };
+    let mut encoded: Vec<u8> = Vec::new();
+    File::open(&config_path)
+        .unwrap()
+        .read_to_end(&mut encoded)
+        .unwrap();
+    let filename = String::from_utf8(encoded).unwrap();
+    let filepath = datadir.join(&filename);
+    if filepath == PathBuf::new() || filepath.ends_with(".config") || filepath.is_dir() {
+        None
+    } else {
+        Some(filename)
     }
 }
