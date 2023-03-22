@@ -89,6 +89,7 @@ impl Project {
         let mut project = bincode::deserialize::<Project>(encoded.as_slice()).unwrap();
         for index in 0..project.len() {
             project.subprojects.get_value(index).tasks.deselect();
+            project.subprojects.get_value(index).tasks.select_next();
         }
         project.subprojects.deselect();
         project.subprojects.select_next();
