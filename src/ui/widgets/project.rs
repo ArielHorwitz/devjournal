@@ -305,7 +305,7 @@ impl<'a> ProjectWidget<'a> {
                         }
                         PromptRequest::AddSubProject => {
                             self.project.subprojects.insert_item(
-                                self.project.subprojects.selected(),
+                                self.project.subprojects.next_index(),
                                 SubProject::new(&result_text),
                                 true,
                             );
