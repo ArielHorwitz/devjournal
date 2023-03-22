@@ -54,6 +54,12 @@ pub fn prompt_dim() -> Style {
     Style::default().fg(Color::Rgb(128, 64, 0))
 }
 
+pub fn prompt_password() -> Style {
+    Style::default()
+        .bg(Color::Rgb(32, 32, 140))
+        .fg(Color::Rgb(32, 32, 140))
+}
+
 pub fn prompt_cursor() -> Style {
     Style::default().bg(Color::Rgb(128, 64, 0))
 }

@@ -151,27 +151,29 @@ impl<'a> ProjectWidget<'a> {
         match (key.code, key.modifiers) {
             // Project operations
             (KeyCode::Char('p'), KeyModifiers::ALT) => {
-                self.prompt_request = Some(PromptRequest::SetProjectPassword);
-                self.prompt.set_text("");
-                self.prompt
-                    .set_prompt_text(&format!("Set new password for `{}`:", self.project.name));
+                self.set_prompt_extra(
+                    PromptRequest::SetProjectPassword,
+                    &format!("Set new password for `{}`:", self.project.name),
+                    "",
+                    true,
+                );
             }
             (KeyCode::Char('r'), KeyModifiers::ALT) => {
-                self.prompt_request = Some(PromptRequest::RenameProject);
-                self.prompt.set_text(&self.project.name);
-                self.prompt.set_prompt_text("New Project Name:");
+                self.set_prompt(PromptRequest::RenameProject, "New Project Name:");
             }
             (KeyCode::Char('R'), KeyModifiers::SHIFT) => {
                 if let Some(subproject) = selected_subproject {
-                    self.prompt_request = Some(PromptRequest::RenameSubProject);
-                    self.prompt.set_text(&subproject.name);
-                    self.prompt.set_prompt_text("New Subproject Name:");
+                    let name = subproject.name.clone();
+                    self.set_prompt_extra(
+                        PromptRequest::RenameSubProject,
+                        "New Subproject Name:",
+                        &name,
+                        false,
+                    );
                 }
             }
             (KeyCode::Char('='), KeyModifiers::ALT) => {
-                self.prompt_request = Some(PromptRequest::AddSubProject);
-                self.prompt.set_prompt_text("New Subproject Name:");
-                self.prompt.set_text("");
+                self.set_prompt(PromptRequest::AddSubProject, "New Subproject Name:");
             }
             (KeyCode::Char('-'), KeyModifiers::ALT) => {
                 self.project.subprojects.pop_selected();
@@ -212,9 +214,7 @@ impl<'a> ProjectWidget<'a> {
             }
             // Subproject operations
             (KeyCode::Char('n'), KeyModifiers::NONE) => {
-                self.prompt_request = Some(PromptRequest::AddTask);
-                self.prompt.set_prompt_text("New Task:");
-                self.prompt.set_text("");
+                self.set_prompt(PromptRequest::AddTask, "New Task:");
             }
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
                 if let Some(subproject) = selected_subproject {
@@ -224,9 +224,13 @@ impl<'a> ProjectWidget<'a> {
             (KeyCode::Char('r'), KeyModifiers::NONE) => {
                 if let Some(subproject) = selected_subproject {
                     if let Some(task) = subproject.tasks.selected_value() {
-                        self.prompt_request = Some(PromptRequest::RenameTask);
-                        self.prompt.set_prompt_text("Rename Task:");
-                        self.prompt.set_text(&task.desc);
+                        let desc = task.desc.clone();
+                        self.set_prompt_extra(
+                            PromptRequest::RenameTask,
+                            "Rename Task:",
+                            &desc,
+                            false,
+                        );
                     }
                 }
             }
@@ -282,7 +286,7 @@ impl<'a> ProjectWidget<'a> {
                 PromptEvent::Cancelled => self.prompt_request = None,
                 PromptEvent::AwaitingResult(_) => (),
                 PromptEvent::Result(result_text) => {
-                    self.prompt.set_text("");
+                    self.clear_prompt();
                     let subproject = self.project.subprojects.selected_value();
                     match pr {
                         PromptRequest::SetProjectPassword => {
@@ -337,13 +341,12 @@ impl<'a> ProjectWidget<'a> {
             FileListResult::Result(name) => {
                 if let Some(fr) = &self.file_request {
                     match fr {
-                        FileRequest::Load => {
-                            self.prompt_request =
-                                Some(PromptRequest::GetLoadPassword(name.clone()));
-                            self.prompt.set_text("");
-                            self.prompt
-                                .set_prompt_text(&format!("Password for `{}`:", name));
-                        }
+                        FileRequest::Load => self.set_prompt_extra(
+                            PromptRequest::GetLoadPassword(name.clone()),
+                            &format!("Password for `{}`:", name),
+                            "",
+                            true,
+                        ),
                         FileRequest::Save => {
                             self.save_project(Some(&self.datadir.join(name)));
                         }
@@ -352,5 +355,29 @@ impl<'a> ProjectWidget<'a> {
                 }
             }
         }
+    }
+
+    fn clear_prompt(&mut self) {
+        self.prompt.set_prompt_text("Input:");
+        self.prompt.set_text("");
+        self.prompt_request = None;
+        self.prompt.set_password(false);
+    }
+
+    fn set_prompt(&mut self, request: PromptRequest, prompt_text: &str) {
+        self.set_prompt_extra(request, prompt_text, "", false)
+    }
+
+    fn set_prompt_extra(
+        &mut self,
+        request: PromptRequest,
+        prompt_text: &str,
+        prefill_text: &str,
+        password: bool,
+    ) {
+        self.prompt.set_prompt_text(prompt_text);
+        self.prompt.set_text(prefill_text);
+        self.prompt_request = Some(request);
+        self.prompt.set_password(password);
     }
 }

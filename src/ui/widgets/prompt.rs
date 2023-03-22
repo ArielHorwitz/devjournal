@@ -28,6 +28,7 @@ pub struct PromptWidget<'a> {
     focus: bool,
     style_title: Style,
     style_border: Style,
+    password: bool,
 }
 
 impl<'a> PromptWidget<'a> {
@@ -41,6 +42,7 @@ impl<'a> PromptWidget<'a> {
             focus: true,
             style_title: styles::title(),
             style_border: styles::border_highlighted(),
+            password: false,
         };
         widget.set_focus(true);
         widget
@@ -59,6 +61,11 @@ impl<'a> PromptWidget<'a> {
     pub fn width_hint(mut self, hint: f32) -> PromptWidget<'a> {
         self.width_hint = hint;
         self
+    }
+
+    pub fn set_password(&mut self, is_password: bool) {
+        self.password = is_password;
+        self.set_focus(self.focus);
     }
 
     pub fn set_prompt_text(&mut self, text: &str) {
@@ -84,12 +91,18 @@ impl<'a> PromptWidget<'a> {
         if self.focus {
             self.style_title = styles::title();
             self.style_border = styles::border_highlighted();
-            self.textarea.set_cursor_line_style(styles::prompt());
+            self.textarea.set_cursor_line_style(match self.password {
+                false => styles::prompt(),
+                true => styles::prompt_password(),
+            });
             self.textarea.set_cursor_style(styles::prompt_cursor());
         } else {
             self.style_title = styles::title_dim();
             self.style_border = styles::border();
-            self.textarea.set_cursor_line_style(styles::prompt_dim());
+            self.textarea.set_cursor_line_style(match self.password {
+                false => styles::prompt_dim(),
+                true => styles::prompt_password(),
+            });
             self.textarea.set_cursor_style(styles::prompt_cursor_dim());
         }
     }
