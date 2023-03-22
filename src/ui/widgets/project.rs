@@ -9,11 +9,7 @@ use crate::{
     ui::styles,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::{
-    fs::{write, File},
-    io::Read,
-    path::PathBuf,
-};
+use std::path::PathBuf;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -27,8 +23,10 @@ use tui::{
 // const SAVE_CHAR: char = '☑';
 // const DELETE_CHAR: char = '☒';
 
+#[derive(Clone)]
 enum PromptRequest {
-    SetKey,
+    SetProjectPassword,
+    GetLoadPassword(String),
     RenameProject,
     RenameSubProject,
     AddSubProject,
@@ -36,6 +34,7 @@ enum PromptRequest {
     RenameTask,
 }
 
+#[derive(Clone, Copy)]
 enum FileRequest {
     Save,
     Load,
@@ -48,7 +47,8 @@ pub struct ProjectWidget<'a> {
     prompt_request: Option<PromptRequest>,
     filelist: FileListWidget<'a>,
     file_request: Option<FileRequest>,
-    encryption_key: String,
+    project_password: String,
+    project_filepath: PathBuf,
 }
 
 impl<'a> ProjectWidget<'a> {
@@ -56,18 +56,35 @@ impl<'a> ProjectWidget<'a> {
         let datadir_path = PathBuf::from(datadir);
         let project = Project::default();
         ProjectWidget {
-            datadir: datadir_path,
+            datadir: datadir_path.clone(),
             project,
             prompt: PromptWidget::default().width_hint(0.7),
             prompt_request: None,
             filelist: FileListWidget::new(datadir),
             file_request: None,
-            encryption_key: "".to_string(),
+            project_password: "".to_string(),
+            project_filepath: datadir_path.join("new_project"),
         }
     }
 
     pub fn project_name(&self) -> &str {
         &self.project.name
+    }
+
+    fn save_project(&mut self, filepath: Option<&PathBuf>) {
+        let filepath = filepath.unwrap_or(&self.project_filepath);
+        self.project
+            .save_file_encrypted(filepath, &self.project_password)
+            .expect("failed to save");
+        self.filelist.refresh_filelist();
+    }
+
+    fn load_project(&mut self, name: &str, key: &str) {
+        let filepath = self.datadir.join(name);
+        self.project = Project::from_file_encrypted(&filepath, key).expect("failed to load");
+        self.project_password = key.to_string();
+        self.project_filepath = filepath;
+        self.filelist.refresh_filelist();
     }
 
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
@@ -133,10 +150,11 @@ impl<'a> ProjectWidget<'a> {
         let selected_subproject = self.project.subprojects.selected_value();
         match (key.code, key.modifiers) {
             // Project operations
-            (KeyCode::F(10), KeyModifiers::ALT) => {
-                self.prompt_request = Some(PromptRequest::SetKey);
+            (KeyCode::Char('p'), KeyModifiers::ALT) => {
+                self.prompt_request = Some(PromptRequest::SetProjectPassword);
                 self.prompt.set_text("");
-                self.prompt.set_prompt_text("New Encryption Key:");
+                self.prompt
+                    .set_prompt_text(&format!("Set new password for `{}`:", self.project.name));
             }
             (KeyCode::Char('r'), KeyModifiers::ALT) => {
                 self.prompt_request = Some(PromptRequest::RenameProject);
@@ -246,13 +264,7 @@ impl<'a> ProjectWidget<'a> {
                 self.filelist.set_prompt_text("Create New File:");
             }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
-                self.project
-                    .save_file_encrypted(
-                        &self.datadir.join(self.project_filename()),
-                        &self.encryption_key,
-                    )
-                    .expect("failed to save");
-                self.filelist.refresh_filelist();
+                self.save_project(None);
             }
             (KeyCode::Char('s'), KeyModifiers::ALT) => {
                 self.file_request = Some(FileRequest::Save);
@@ -265,7 +277,7 @@ impl<'a> ProjectWidget<'a> {
     }
 
     fn handle_prompt_event(&mut self, key: KeyEvent) {
-        if let Some(pr) = &self.prompt_request {
+        if let Some(pr) = self.prompt_request.clone() {
             match self.prompt.handle_event(key) {
                 PromptEvent::Cancelled => self.prompt_request = None,
                 PromptEvent::AwaitingResult(_) => (),
@@ -273,8 +285,11 @@ impl<'a> ProjectWidget<'a> {
                     self.prompt.set_text("");
                     let subproject = self.project.subprojects.selected_value();
                     match pr {
-                        PromptRequest::SetKey => {
-                            self.encryption_key = result_text;
+                        PromptRequest::SetProjectPassword => {
+                            self.project_password = result_text;
+                        }
+                        PromptRequest::GetLoadPassword(name) => {
+                            self.load_project(&name, &result_text);
                         }
                         PromptRequest::RenameProject => {
                             self.project.name = result_text;
@@ -323,55 +338,19 @@ impl<'a> ProjectWidget<'a> {
                 if let Some(fr) = &self.file_request {
                     match fr {
                         FileRequest::Load => {
-                            self.project = Project::from_file_encrypted(
-                                &self.datadir.join(&name),
-                                &self.encryption_key,
-                            )
-                            .expect("failed to load");
-                            set_default_file(&self.datadir, &name);
+                            self.prompt_request =
+                                Some(PromptRequest::GetLoadPassword(name.clone()));
+                            self.prompt.set_text("");
+                            self.prompt
+                                .set_prompt_text(&format!("Password for `{}`:", name));
                         }
                         FileRequest::Save => {
-                            let filename = self.project_filename();
-                            self.project
-                                .save_file_encrypted(
-                                    &self.datadir.join(&filename),
-                                    &self.encryption_key,
-                                )
-                                .expect("failed to save");
-                            set_default_file(&self.datadir, &filename);
+                            self.save_project(Some(&self.datadir.join(name)));
                         }
                     }
                     self.file_request = None;
                 }
             }
         }
-    }
-
-    fn project_filename(&self) -> String {
-        self.project.name.replace(" ", "_").to_lowercase()
-    }
-}
-
-fn set_default_file(datadir: &PathBuf, name: &str) {
-    write(datadir.join(".config"), name).unwrap();
-}
-
-#[allow(dead_code)]
-fn get_default_file(datadir: &PathBuf) -> Option<String> {
-    let config_path = datadir.join(".config");
-    if config_path.exists() == false {
-        File::create(&config_path).unwrap();
-    };
-    let mut encoded: Vec<u8> = Vec::new();
-    File::open(&config_path)
-        .unwrap()
-        .read_to_end(&mut encoded)
-        .unwrap();
-    let filename = String::from_utf8(encoded).unwrap();
-    let filepath = datadir.join(&filename);
-    if filepath == PathBuf::new() || filepath.ends_with(".config") || filepath.is_dir() {
-        None
-    } else {
-        Some(filename)
     }
 }
