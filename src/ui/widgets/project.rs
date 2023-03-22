@@ -18,11 +18,6 @@ use tui::{
     Frame,
 };
 
-// const CREATE_CHAR: char = '⁕';
-// const LOAD_CHAR: char = '★';
-// const SAVE_CHAR: char = '☑';
-// const DELETE_CHAR: char = '☒';
-
 #[derive(Clone)]
 enum PromptRequest {
     SetProjectPassword,
@@ -136,17 +131,17 @@ impl<'a> ProjectWidget<'a> {
         }
     }
 
-    pub fn handle_event(&mut self, key: KeyEvent) {
+    pub fn handle_event(&mut self, key: KeyEvent) -> Option<String> {
         if self.file_request.is_some() {
-            self.handle_filelist_event(key);
+            self.handle_filelist_event(key)
         } else if self.prompt_request.is_some() {
-            self.handle_prompt_event(key);
+            self.handle_prompt_event(key)
         } else {
-            self.handle_subproject_event(key);
+            self.handle_subproject_event(key)
         }
     }
 
-    fn handle_subproject_event(&mut self, key: KeyEvent) {
+    fn handle_subproject_event(&mut self, key: KeyEvent) -> Option<String> {
         let selected_subproject = self.project.subprojects.selected_value();
         match (key.code, key.modifiers) {
             // Project operations
@@ -195,7 +190,7 @@ impl<'a> ProjectWidget<'a> {
                             task,
                             true,
                         );
-                        self.project.subprojects.select_next()
+                        self.project.subprojects.select_next();
                     }
                 }
             }
@@ -269,6 +264,7 @@ impl<'a> ProjectWidget<'a> {
             }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                 self.save_project(None);
+                return Some(format!("Saved project: {:?}", self.project_filepath));
             }
             (KeyCode::Char('s'), KeyModifiers::ALT) => {
                 self.file_request = Some(FileRequest::Save);
@@ -278,9 +274,10 @@ impl<'a> ProjectWidget<'a> {
             }
             _ => (),
         };
+        None
     }
 
-    fn handle_prompt_event(&mut self, key: KeyEvent) {
+    fn handle_prompt_event(&mut self, key: KeyEvent) -> Option<String> {
         if let Some(pr) = self.prompt_request.clone() {
             match self.prompt.handle_event(key) {
                 PromptEvent::Cancelled => self.prompt_request = None,
@@ -291,12 +288,15 @@ impl<'a> ProjectWidget<'a> {
                     match pr {
                         PromptRequest::SetProjectPassword => {
                             self.project_password = result_text;
+                            return Some("Reset project password".to_string());
                         }
                         PromptRequest::GetLoadPassword(name) => {
                             self.load_project(&name, &result_text);
+                            return Some(format!("Loaded project: {:?}", self.project_filepath));
                         }
                         PromptRequest::RenameProject => {
                             self.project.name = result_text;
+                            return Some(format!("Renamed project: {}", self.project.name));
                         }
                         PromptRequest::RenameSubProject => {
                             if let Some(subproject) = subproject {
@@ -319,7 +319,7 @@ impl<'a> ProjectWidget<'a> {
                             if let Some(subproject) = subproject {
                                 if let Some(task) = subproject.tasks.selected_value() {
                                     let new_task = Task {
-                                        desc: result_text,
+                                        desc: result_text.clone(),
                                         ..task.clone()
                                     };
                                     subproject.tasks.replace_selected(new_task);
@@ -331,9 +331,10 @@ impl<'a> ProjectWidget<'a> {
                 }
             };
         }
+        None
     }
 
-    fn handle_filelist_event(&mut self, key: KeyEvent) {
+    fn handle_filelist_event(&mut self, key: KeyEvent) -> Option<String> {
         match self.filelist.handle_event(key) {
             FileListResult::AwaitingResult => (),
             FileListResult::Cancelled => self.file_request = None,
@@ -349,12 +350,14 @@ impl<'a> ProjectWidget<'a> {
                         ),
                         FileRequest::Save => {
                             self.save_project(Some(&self.datadir.join(name)));
+                            return Some(format!("Saved project {:?}", self.project_filepath));
                         }
                     }
                     self.file_request = None;
                 }
             }
         }
+        None
     }
 
     fn clear_prompt(&mut self) {

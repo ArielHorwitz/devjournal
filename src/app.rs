@@ -49,10 +49,6 @@ impl<'a> App<'a> {
         }
     }
 
-    pub fn set_feedback_text(&mut self, text: &str) {
-        self.user_feedback_text = text.to_string();
-    }
-
     fn on_tick(&mut self) {
         let title = format!("{} - {}", self.title, self.project_widget.project_name());
         crossterm::queue!(stdout(), SetTitle(title)).unwrap();
@@ -62,10 +58,12 @@ impl<'a> App<'a> {
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = crossterm::event::read()? {
                 if self.tab_index == 1 {
-                    self.set_feedback_text(&format!("{:?}", key));
+                    self.user_feedback_text = format!("{:?}", key);
                 }
                 if let Handled::No = self.handle_events_global(key) {
-                    self.project_widget.handle_event(key);
+                    if let Some(feedback) = self.project_widget.handle_event(key) {
+                        self.user_feedback_text = feedback;
+                    };
                 }
             }
         }

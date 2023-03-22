@@ -70,9 +70,7 @@ fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) 
         .direction(Direction::Horizontal)
         .constraints([Constraint::Ratio(3, 4), Constraint::Ratio(1, 4)])
         .split(inner);
-    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::text_dim());
-    let paragraph = Paragraph::new(text);
-    f.render_widget(paragraph, chunks[0]);
+    f.render_widget(Paragraph::new(app.user_feedback_text.clone()), chunks[0]);
     let text = Span::styled(
         format!("( terminal: {}×{} )", f.size().width, f.size().height),
         styles::text_dim(),
