@@ -54,10 +54,6 @@ pub struct ProjectWidget<'a> {
 impl<'a> ProjectWidget<'a> {
     pub fn new(datadir: &str) -> ProjectWidget<'a> {
         let datadir_path = PathBuf::from(datadir);
-        // let project = match get_default_file(&datadir_path) {
-        //     Some(name) => Project::from_file(&datadir_path.join(name)),
-        //     None => Project::new("New Project", "Tasks"),
-        // };
         let project = Project::default();
         ProjectWidget {
             datadir: datadir_path,
@@ -75,11 +71,6 @@ impl<'a> ProjectWidget<'a> {
     }
 
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
-        // let chunks = Layout::default()
-        //     .direction(Direction::Horizontal)
-        //     .constraints([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)])
-        //     .split(chunk);
-        // self.draw_sidebar(f, chunks[0]);
         self.draw_subprojects(f, chunk);
         if self.file_request.is_some() {
             self.filelist.draw(f, center_rect(35, 20, chunk, 1));
@@ -90,8 +81,8 @@ impl<'a> ProjectWidget<'a> {
 
     fn draw_subprojects<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
         let subproject_count = self.project.len() as u32;
-        let small: u32 = 4;
-        let large: u32 = 5;
+        let small: u32 = 1;
+        let large: u32 = 2;
         let total: u32 = small * (subproject_count - 1) + large;
         let constraints: Vec<Constraint> = (0..subproject_count)
             .map(|i| {
@@ -365,6 +356,7 @@ fn set_default_file(datadir: &PathBuf, name: &str) {
     write(datadir.join(".config"), name).unwrap();
 }
 
+#[allow(dead_code)]
 fn get_default_file(datadir: &PathBuf) -> Option<String> {
     let config_path = datadir.join(".config");
     if config_path.exists() == false {
