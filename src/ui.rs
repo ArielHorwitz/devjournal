@@ -6,7 +6,7 @@ use tui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Tabs, Wrap},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Tabs},
     Frame,
 };
 
@@ -61,12 +61,24 @@ fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
 }
 
 fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
-    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::text_dim());
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(styles::border());
-    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
-    f.render_widget(paragraph, chunk);
+    let inner = block.inner(chunk);
+    f.render_widget(block, chunk);
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Ratio(3, 4), Constraint::Ratio(1, 4)])
+        .split(inner);
+    let text = Span::styled(format!(">> {}", app.user_feedback_text), styles::text_dim());
+    let paragraph = Paragraph::new(text);
+    f.render_widget(paragraph, chunks[0]);
+    let text = Span::styled(
+        format!("( terminal: {}×{} )", f.size().width, f.size().height),
+        styles::text_dim(),
+    );
+    let paragraph = Paragraph::new(text).alignment(tui::layout::Alignment::Right);
+    f.render_widget(paragraph, chunks[1]);
 }
 
 pub fn draw_debug_tab<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
