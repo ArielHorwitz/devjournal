@@ -28,6 +28,7 @@ use tui::{
 // const DELETE_CHAR: char = '☒';
 
 enum PromptRequest {
+    SetKey,
     RenameProject,
     RenameSubProject,
     AddSubProject,
@@ -47,15 +48,17 @@ pub struct ProjectWidget<'a> {
     prompt_request: Option<PromptRequest>,
     filelist: FileListWidget<'a>,
     file_request: Option<FileRequest>,
+    encryption_key: String,
 }
 
 impl<'a> ProjectWidget<'a> {
     pub fn new(datadir: &str) -> ProjectWidget<'a> {
         let datadir_path = PathBuf::from(datadir);
-        let project = match get_default_file(&datadir_path) {
-            Some(name) => Project::from_file(&datadir_path.join(name)),
-            None => Project::new("New Project", "Tasks"),
-        };
+        // let project = match get_default_file(&datadir_path) {
+        //     Some(name) => Project::from_file(&datadir_path.join(name)),
+        //     None => Project::new("New Project", "Tasks"),
+        // };
+        let project = Project::default();
         ProjectWidget {
             datadir: datadir_path,
             project,
@@ -63,6 +66,7 @@ impl<'a> ProjectWidget<'a> {
             prompt_request: None,
             filelist: FileListWidget::new(datadir),
             file_request: None,
+            encryption_key: "".to_string(),
         }
     }
 
@@ -138,6 +142,11 @@ impl<'a> ProjectWidget<'a> {
         let selected_subproject = self.project.subprojects.selected_value();
         match (key.code, key.modifiers) {
             // Project operations
+            (KeyCode::F(10), KeyModifiers::ALT) => {
+                self.prompt_request = Some(PromptRequest::SetKey);
+                self.prompt.set_text("");
+                self.prompt.set_prompt_text("New Encryption Key:");
+            }
             (KeyCode::Char('r'), KeyModifiers::ALT) => {
                 self.prompt_request = Some(PromptRequest::RenameProject);
                 self.prompt.set_text(&self.project.name);
@@ -247,7 +256,11 @@ impl<'a> ProjectWidget<'a> {
             }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                 self.project
-                    .save_file(&self.datadir.join(self.project_filename()));
+                    .save_file_encrypted(
+                        &self.datadir.join(self.project_filename()),
+                        &self.encryption_key,
+                    )
+                    .expect("failed to save");
                 self.filelist.refresh_filelist();
             }
             (KeyCode::Char('s'), KeyModifiers::ALT) => {
@@ -269,6 +282,9 @@ impl<'a> ProjectWidget<'a> {
                     self.prompt.set_text("");
                     let subproject = self.project.subprojects.selected_value();
                     match pr {
+                        PromptRequest::SetKey => {
+                            self.encryption_key = result_text;
+                        }
                         PromptRequest::RenameProject => {
                             self.project.name = result_text;
                         }
@@ -316,12 +332,21 @@ impl<'a> ProjectWidget<'a> {
                 if let Some(fr) = &self.file_request {
                     match fr {
                         FileRequest::Load => {
-                            self.project = Project::from_file(&self.datadir.join(&name));
+                            self.project = Project::from_file_encrypted(
+                                &self.datadir.join(&name),
+                                &self.encryption_key,
+                            )
+                            .expect("failed to load");
                             set_default_file(&self.datadir, &name);
                         }
                         FileRequest::Save => {
                             let filename = self.project_filename();
-                            self.project.save_file(&self.datadir.join(&filename));
+                            self.project
+                                .save_file_encrypted(
+                                    &self.datadir.join(&filename),
+                                    &self.encryption_key,
+                                )
+                                .expect("failed to save");
                             set_default_file(&self.datadir, &filename);
                         }
                     }

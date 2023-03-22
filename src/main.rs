@@ -1,5 +1,6 @@
 /// Main entry point
 mod app;
+mod crypto;
 mod ui;
 use app::run_app;
 use crossterm::{
