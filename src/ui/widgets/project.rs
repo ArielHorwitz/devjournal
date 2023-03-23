@@ -18,6 +18,8 @@ use tui::{
     Frame,
 };
 
+const DEFAULT_WIDTH_PERCENT: u16 = 40;
+
 #[derive(Clone)]
 enum PromptRequest {
     SetProjectPassword,
@@ -44,6 +46,7 @@ pub struct ProjectWidget<'a> {
     file_request: Option<FileRequest>,
     project_password: String,
     project_filepath: PathBuf,
+    focused_width_percent: u16,
 }
 
 impl<'a> ProjectWidget<'a> {
@@ -59,6 +62,7 @@ impl<'a> ProjectWidget<'a> {
             file_request: None,
             project_password: "".to_string(),
             project_filepath: datadir_path.join("new_project"),
+            focused_width_percent: DEFAULT_WIDTH_PERCENT,
         }
     }
 
@@ -91,17 +95,21 @@ impl<'a> ProjectWidget<'a> {
         };
     }
 
+    fn bind_focus_size(&mut self) {
+        let min_width = (100. / self.project.subprojects.len() as f32).max(5.) as u16;
+        self.focused_width_percent = self.focused_width_percent.min(95).max(min_width);
+    }
+
     fn draw_subprojects<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
-        let subproject_count = self.project.len() as u32;
-        let small: u32 = 1;
-        let large: u32 = 2;
-        let total: u32 = small * (subproject_count - 1) + large;
+        let subproject_count = self.project.len() as u16;
+        let percent_unfocus = ((100. - self.focused_width_percent as f32)
+            / (subproject_count as f32 - 1.).floor()) as u16;
         let constraints: Vec<Constraint> = (0..subproject_count)
             .map(|i| {
-                if i == self.project.subprojects.selected().unwrap() as u32 {
-                    Constraint::Ratio(large, total)
+                if i == self.project.subprojects.selected().unwrap() as u16 {
+                    Constraint::Percentage(self.focused_width_percent)
                 } else {
-                    Constraint::Ratio(small, total)
+                    Constraint::Percentage(percent_unfocus)
                 }
             })
             .collect();
@@ -167,11 +175,20 @@ impl<'a> ProjectWidget<'a> {
                     );
                 }
             }
+            (KeyCode::Char('='), KeyModifiers::NONE) => {
+                self.focused_width_percent += 5;
+                self.bind_focus_size();
+            }
+            (KeyCode::Char('-'), KeyModifiers::NONE) => {
+                self.focused_width_percent = self.focused_width_percent.saturating_sub(5);
+                self.bind_focus_size();
+            }
             (KeyCode::Char('='), KeyModifiers::ALT) => {
                 self.set_prompt(PromptRequest::AddSubProject, "New Subproject Name:");
             }
             (KeyCode::Char('-'), KeyModifiers::ALT) => {
                 self.project.subprojects.pop_selected();
+                self.bind_focus_size();
             }
             (KeyCode::Char('l'), KeyModifiers::NONE) => self.project.subprojects.select_next(),
             (KeyCode::Char('h'), KeyModifiers::NONE) => self.project.subprojects.select_prev(),
@@ -292,6 +309,7 @@ impl<'a> ProjectWidget<'a> {
                         }
                         PromptRequest::GetLoadPassword(name) => {
                             self.load_project(&name, &result_text);
+                            self.bind_focus_size();
                             return Some(format!("Loaded project: {:?}", self.project_filepath));
                         }
                         PromptRequest::RenameProject => {
@@ -309,6 +327,7 @@ impl<'a> ProjectWidget<'a> {
                                 SubProject::new(&result_text),
                                 true,
                             );
+                            self.bind_focus_size();
                         }
                         PromptRequest::AddTask => {
                             if let Some(subproject) = subproject {
