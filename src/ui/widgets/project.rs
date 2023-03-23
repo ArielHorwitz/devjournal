@@ -19,6 +19,7 @@ use tui::{
 };
 
 const DEFAULT_WIDTH_PERCENT: u16 = 40;
+const DEFAULT_PROJECT_FILENAME: &'static str = "new_project";
 
 #[derive(Clone)]
 enum PromptRequest {
@@ -52,16 +53,15 @@ pub struct ProjectWidget<'a> {
 impl<'a> ProjectWidget<'a> {
     pub fn new(datadir: &str) -> ProjectWidget<'a> {
         let datadir_path = PathBuf::from(datadir);
-        let project = Project::default();
         ProjectWidget {
             datadir: datadir_path.clone(),
-            project,
+            project: Project::default(),
             prompt: PromptWidget::default().width_hint(0.7),
             prompt_request: None,
             filelist: FileListWidget::new(datadir),
             file_request: None,
             project_password: "".to_string(),
-            project_filepath: datadir_path.join("new_project"),
+            project_filepath: datadir_path.join(DEFAULT_PROJECT_FILENAME),
             focused_width_percent: DEFAULT_WIDTH_PERCENT,
         }
     }
@@ -153,6 +153,11 @@ impl<'a> ProjectWidget<'a> {
         let selected_subproject = self.project.subprojects.selected_value();
         match (key.code, key.modifiers) {
             // Project operations
+            (KeyCode::Char('n'), KeyModifiers::ALT) => {
+                self.project = Project::default();
+                self.project_filepath = self.datadir.join(DEFAULT_PROJECT_FILENAME);
+                return Some("New project created".to_string());
+            }
             (KeyCode::Char('p'), KeyModifiers::ALT) => {
                 self.set_prompt_extra(
                     PromptRequest::SetProjectPassword,
@@ -183,10 +188,10 @@ impl<'a> ProjectWidget<'a> {
                 self.focused_width_percent = self.focused_width_percent.saturating_sub(5);
                 self.bind_focus_size();
             }
-            (KeyCode::Char('='), KeyModifiers::ALT) => {
+            (KeyCode::Char('N'), KeyModifiers::SHIFT) => {
                 self.set_prompt(PromptRequest::AddSubProject, "New Subproject Name:");
             }
-            (KeyCode::Char('-'), KeyModifiers::ALT) => {
+            (KeyCode::Char('D'), KeyModifiers::SHIFT) => {
                 self.project.subprojects.pop_selected();
                 self.bind_focus_size();
             }
