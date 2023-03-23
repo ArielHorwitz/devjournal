@@ -70,6 +70,11 @@ impl<'a> ProjectWidget<'a> {
         &self.project.name
     }
 
+    fn reset_ui(&mut self) {
+        self.focused_width_percent = DEFAULT_WIDTH_PERCENT;
+        self.bind_focus_size();
+    }
+
     fn save_project(&mut self, filepath: Option<&PathBuf>) {
         let filepath = filepath.unwrap_or(&self.project_filepath);
         self.project
@@ -84,6 +89,7 @@ impl<'a> ProjectWidget<'a> {
         self.project_password = key.to_string();
         self.project_filepath = filepath;
         self.filelist.refresh_filelist();
+        self.reset_ui();
     }
 
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
@@ -156,6 +162,7 @@ impl<'a> ProjectWidget<'a> {
             (KeyCode::Char('n'), KeyModifiers::ALT) => {
                 self.project = Project::default();
                 self.project_filepath = self.datadir.join(DEFAULT_PROJECT_FILENAME);
+                self.reset_ui();
                 return Some("New project created".to_string());
             }
             (KeyCode::Char('p'), KeyModifiers::ALT) => {
@@ -314,7 +321,6 @@ impl<'a> ProjectWidget<'a> {
                         }
                         PromptRequest::GetLoadPassword(name) => {
                             self.load_project(&name, &result_text);
-                            self.bind_focus_size();
                             return Some(format!("Loaded project: {:?}", self.project_filepath));
                         }
                         PromptRequest::RenameProject => {
