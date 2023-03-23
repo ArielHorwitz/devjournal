@@ -72,19 +72,21 @@ impl Project {
     pub fn from_file_encrypted(filepath: &PathBuf, key: &str) -> Result<Project, String> {
         let mut encoded: Vec<u8> = Vec::new();
         if !filepath.exists() {
-            Project::default()
-                .save_file_encrypted(filepath, key)
-                .expect("failed to create default file");
+            Project::default().save_file_encrypted(filepath, key)?;
         }
         File::open(filepath)
-            .expect("failed to create file")
+            .map_err(|e| format!("Failed to create new file [{}]", e.to_string()))?
             .read_to_end(&mut encoded)
-            .expect("failed to read from file");
+            .map_err(|e| format!("Failed to read from file [{}]", e.to_string()))?;
         if key.len() > 0 {
-            encoded = decrypt(&encoded, key);
+            encoded = decrypt(&encoded, key)?;
         }
-        let mut project =
-            bincode::deserialize::<Project>(encoded.as_slice()).expect("failed to deserialize");
+        let mut project = bincode::deserialize::<Project>(encoded.as_slice()).map_err(|e| {
+            format!(
+                "Failed to deserialize - wrong password or corrupted file [{}]",
+                e.to_string()
+            )
+        })?;
         for index in 0..project.len() {
             project.subprojects.get_value(index).tasks.deselect();
             project.subprojects.get_value(index).tasks.select_next();
@@ -95,12 +97,15 @@ impl Project {
     }
 
     pub fn save_file_encrypted(&self, filepath: &PathBuf, key: &str) -> Result<(), String> {
-        let mut encoded = bincode::serialize(&self).expect("failed to serialize");
+        let mut encoded = bincode::serialize(&self)
+            .map_err(|e| format!("Failed to serialize [{}]", e.to_string()))?;
         if key.len() > 0 {
-            encoded = encrypt(&encoded, key);
+            encoded = encrypt(&encoded, key)?;
         }
-        let mut file = File::create(&filepath).expect("failed to create file");
-        file.write_all(&encoded).expect("failed to write to file");
+        let mut file = File::create(&filepath)
+            .map_err(|e| format!("Failed to create file [{}]", e.to_string()))?;
+        file.write_all(&encoded)
+            .map_err(|e| format!("Failed to write to file [{}]", e.to_string()))?;
         Ok(())
     }
 

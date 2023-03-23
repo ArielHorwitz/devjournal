@@ -75,21 +75,23 @@ impl<'a> ProjectWidget<'a> {
         self.bind_focus_size();
     }
 
-    fn save_project(&mut self, filepath: Option<&PathBuf>) {
+    fn save_project(&mut self, filepath: Option<&PathBuf>) -> Result<(), String> {
         let filepath = filepath.unwrap_or(&self.project_filepath);
         self.project
             .save_file_encrypted(filepath, &self.project_password)
-            .expect("failed to save");
+            .map_err(|e| format!("failed to save; {}", e.to_string()))?;
         self.filelist.refresh_filelist();
+        Ok(())
     }
 
-    fn load_project(&mut self, name: &str, key: &str) {
+    fn load_project(&mut self, name: &str, key: &str) -> Result<(), String> {
         let filepath = self.datadir.join(name);
-        self.project = Project::from_file_encrypted(&filepath, key).expect("failed to load");
+        self.project = Project::from_file_encrypted(&filepath, key)?;
         self.project_password = key.to_string();
         self.project_filepath = filepath;
         self.filelist.refresh_filelist();
         self.reset_ui();
+        Ok(())
     }
 
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
@@ -292,8 +294,10 @@ impl<'a> ProjectWidget<'a> {
                 self.filelist.set_prompt_text("Create New File:");
             }
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
-                self.save_project(None);
-                return Some(format!("Saved project: {:?}", self.project_filepath));
+                return match self.save_project(None) {
+                    Err(e) => Some(e),
+                    Ok(_) => Some(format!("Saved project: {:?}", self.project_filepath)),
+                };
             }
             (KeyCode::Char('s'), KeyModifiers::ALT) => {
                 self.file_request = Some(FileRequest::Save);
@@ -320,8 +324,12 @@ impl<'a> ProjectWidget<'a> {
                             return Some("Reset project password".to_string());
                         }
                         PromptRequest::GetLoadPassword(name) => {
-                            self.load_project(&name, &result_text);
-                            return Some(format!("Loaded project: {:?}", self.project_filepath));
+                            return match self.load_project(&name, &result_text) {
+                                Err(e) => Some(e),
+                                Ok(_) => {
+                                    Some(format!("Loaded project: {:?}", self.project_filepath))
+                                }
+                            };
                         }
                         PromptRequest::RenameProject => {
                             self.project.name = result_text;
@@ -379,8 +387,10 @@ impl<'a> ProjectWidget<'a> {
                             true,
                         ),
                         FileRequest::Save => {
-                            self.save_project(Some(&self.datadir.join(name)));
-                            return Some(format!("Saved project {:?}", self.project_filepath));
+                            return match self.save_project(Some(&self.datadir.join(name))) {
+                                Err(e) => Some(e),
+                                Ok(_) => Some(format!("Saved project {:?}", self.project_filepath)),
+                            };
                         }
                     }
                     self.file_request = None;
