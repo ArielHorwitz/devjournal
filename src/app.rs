@@ -1,10 +1,7 @@
-/// App state and logic
+// App state and logic
 pub mod list;
 pub mod project;
-use crate::ui::{
-    self,
-    widgets::{files::FileListWidget, project::ProjectWidget},
-};
+use crate::ui::{draw, widgets::project::ProjectWidget};
 use crossterm::{
     event::{Event, KeyCode, KeyEvent, KeyModifiers},
     terminal::SetTitle,
@@ -32,7 +29,6 @@ pub struct App<'a> {
     quit_flag: bool,
     pub tab_index: usize,
     pub user_feedback_text: String,
-    pub filelist_widget: FileListWidget<'a>,
     pub project_widget: ProjectWidget<'a>,
 }
 
@@ -44,7 +40,6 @@ impl<'a> App<'a> {
             quit_flag: false,
             tab_index: 0,
             user_feedback_text: format!("Welcome to {title}."),
-            filelist_widget: FileListWidget::new(datadir.to_str().unwrap()),
             project_widget: ProjectWidget::new(datadir.to_str().unwrap()),
         }
     }
@@ -93,7 +88,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
     let mut app = App::new("DevBoard", datadir);
     let mut last_tick = Instant::now();
     loop {
-        terminal.draw(|f| ui::draw(f, &mut app))?;
+        terminal.draw(|f| draw(f, &mut app))?;
         let timeout = tick_rate
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
