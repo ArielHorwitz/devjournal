@@ -1,7 +1,6 @@
 use tui::layout::Rect;
 pub mod files;
 pub mod list;
-pub mod project;
 pub mod prompt;
 
 pub fn center_rect(width: u16, height: u16, chunk: Rect, margin: u16) -> Rect {

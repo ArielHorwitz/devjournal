@@ -1,6 +1,8 @@
-use crate::app::App;
+use crate::app::appstate::AppState;
+pub mod events;
 mod styles;
 pub mod widgets;
+use self::widgets::{center_rect, list::ListWidget};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -10,32 +12,28 @@ use tui::{
     Frame,
 };
 
-pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &AppState, debug: bool) {
     let chunks = Layout::default()
-        .constraints(
-            [
-                Constraint::Length(2),                                 // Tab bar
-                Constraint::Length(f.size().height.saturating_sub(4)), // Tab content
-                Constraint::Length(2),                                 // Status bar
-            ]
-            .as_ref(),
-        )
-        .split(f.size());
-    draw_tab_bar(f, app, chunks[0]);
-    match app.tab_index {
-        0 => app.project_widget.draw(f, chunks[1]),
-        1 => draw_debug_tab(f, app, chunks[1]),
-        _ => {}
+        .constraints(vec![
+            Constraint::Length(2),
+            Constraint::Length(frame.size().height.saturating_sub(4)),
+            Constraint::Length(2),
+        ])
+        .split(frame.size());
+    draw_tab_bar(frame, state, chunks[0]);
+    match debug {
+        false => draw_project(frame, state, chunks[1]),
+        true => draw_debug_tab(frame, state, chunks[1]),
     };
-    draw_feedback_text(f, app, chunks[2]);
+    draw_feedback_text(frame, state, chunks[2]);
 }
 
-fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &AppState, chunk: Rect) {
     let block = Block::default()
         .borders(Borders::BOTTOM)
         .border_style(styles::border());
     let inner = block.inner(chunk);
-    f.render_widget(block, chunk);
+    frame.render_widget(block, chunk);
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![
@@ -45,10 +43,10 @@ fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
         ])
         .split(inner);
     let project_name = Paragraph::new(Span::styled(
-        format!("Project: {}", app.project_widget.project_name()),
+        format!("Project: {}", state.project.name),
         styles::title(),
     ));
-    f.render_widget(project_name, chunks[1]);
+    frame.render_widget(project_name, chunks[1]);
     let titles = vec!["Project", "Debug"]
         .iter()
         .map(|t| Spans::from(Span::styled(*t, styles::tab_dim())))
@@ -56,30 +54,34 @@ fn draw_tab_bar<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
     let tabs = Tabs::new(titles)
         .block(Block::default().borders(Borders::LEFT))
         .highlight_style(styles::tab())
-        .select(app.tab_index);
-    f.render_widget(tabs, chunks[2]);
+        .select(state.tab_index);
+    frame.render_widget(tabs, chunks[2]);
 }
 
-fn draw_feedback_text<B: Backend>(f: &mut Frame<B>, app: &mut App, chunk: Rect) {
+fn draw_feedback_text<B: Backend>(frame: &mut Frame<B>, state: &AppState, chunk: Rect) {
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(styles::border());
     let inner = block.inner(chunk);
-    f.render_widget(block, chunk);
+    frame.render_widget(block, chunk);
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Ratio(3, 4), Constraint::Ratio(1, 4)])
         .split(inner);
-    f.render_widget(Paragraph::new(app.user_feedback_text.clone()), chunks[0]);
+    frame.render_widget(Paragraph::new(state.user_feedback_text.clone()), chunks[0]);
     let text = Span::styled(
-        format!("( terminal: {}×{} )", f.size().width, f.size().height),
+        format!(
+            "( terminal: {}×{} )",
+            frame.size().width,
+            frame.size().height
+        ),
         styles::text_dim(),
     );
     let paragraph = Paragraph::new(text).alignment(tui::layout::Alignment::Right);
-    f.render_widget(paragraph, chunks[1]);
+    frame.render_widget(paragraph, chunks[1]);
 }
 
-pub fn draw_debug_tab<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
+pub fn draw_debug_tab<B>(frame: &mut Frame<B>, _state: &AppState, area: Rect)
 where
     B: Backend,
 {
@@ -135,5 +137,52 @@ where
             Constraint::Ratio(1, 3),
             Constraint::Ratio(1, 3),
         ]);
-    f.render_widget(table, chunks[0]);
+    frame.render_widget(table, chunks[0]);
+}
+
+fn draw_project<B: Backend>(frame: &mut Frame<B>, state: &AppState, rect: Rect) {
+    draw_subprojects(frame, state, rect);
+    if state.file_request.is_some() {
+        state.filelist.draw(frame, center_rect(35, 20, rect, 1));
+    } else if state.project_state.prompt_request.is_some() {
+        state.project_state.prompt.draw(frame, rect);
+    };
+}
+
+fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &AppState, rect: Rect) {
+    let subproject_count = state.project.len() as u16;
+    let percent_unfocus = ((100. - state.project_state.focused_width_percent as f32)
+        / (subproject_count as f32 - 1.).floor()) as u16;
+    let constraints: Vec<Constraint> = (0..subproject_count)
+        .map(|i| {
+            if i == state.project.subprojects.selected().unwrap() as u16 {
+                Constraint::Percentage(state.project_state.focused_width_percent)
+            } else {
+                Constraint::Percentage(percent_unfocus)
+            }
+        })
+        .collect();
+    let chunks = Layout::default()
+        .direction(state.project_state.split_orientation.clone())
+        .constraints(constraints)
+        .split(rect);
+    for (index, subproject) in state.project.subprojects.iter().enumerate() {
+        let mut border_style = styles::border();
+        let mut title_style = styles::title_dim();
+        let mut focus = false;
+        if Some(index) == state.project.subprojects.selected() {
+            border_style = styles::border_highlighted();
+            title_style = styles::title();
+            focus = true;
+        }
+        let widget = ListWidget::new(subproject.tasks.as_strings(), subproject.tasks.selected())
+            .block(
+                Block::default()
+                    .title(Span::styled(&subproject.name, title_style))
+                    .borders(Borders::ALL)
+                    .border_style(border_style),
+            )
+            .focus(focus);
+        frame.render_widget(widget, chunks[index]);
+    }
 }

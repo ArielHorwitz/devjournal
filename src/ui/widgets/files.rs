@@ -115,7 +115,7 @@ impl<'a> FileListWidget<'a> {
         }
     }
 
-    pub fn handle_event_globals(&mut self, key: KeyEvent) -> FileListResult {
+    fn handle_event_globals(&mut self, key: KeyEvent) -> FileListResult {
         match (key.code, key.modifiers) {
             (KeyCode::Esc, KeyModifiers::NONE) => {
                 return FileListResult::Cancelled;
@@ -144,7 +144,7 @@ impl<'a> FileListWidget<'a> {
         });
     }
 
-    pub fn handle_event_list(&mut self, key: KeyEvent) -> FileListResult {
+    fn handle_event_list(&mut self, key: KeyEvent) -> FileListResult {
         match (key.code, key.modifiers) {
             (KeyCode::Tab, KeyModifiers::NONE) => {
                 self.set_focus(Focus::Prompt);
@@ -169,7 +169,7 @@ impl<'a> FileListWidget<'a> {
         FileListResult::AwaitingResult
     }
 
-    pub fn handle_event_prompt(&mut self, key: KeyEvent) -> FileListResult {
+    fn handle_event_prompt(&mut self, key: KeyEvent) -> FileListResult {
         match (key.code, key.modifiers) {
             (KeyCode::Tab, KeyModifiers::NONE) => {
                 self.set_focus(Focus::FileList);
