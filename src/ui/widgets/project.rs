@@ -48,6 +48,7 @@ pub struct ProjectWidget<'a> {
     project_password: String,
     project_filepath: PathBuf,
     focused_width_percent: u16,
+    split_orientation: Direction,
 }
 
 impl<'a> ProjectWidget<'a> {
@@ -63,6 +64,7 @@ impl<'a> ProjectWidget<'a> {
             project_password: "".to_string(),
             project_filepath: datadir_path.join(DEFAULT_PROJECT_FILENAME),
             focused_width_percent: DEFAULT_WIDTH_PERCENT,
+            split_orientation: Direction::Horizontal,
         }
     }
 
@@ -122,7 +124,7 @@ impl<'a> ProjectWidget<'a> {
             })
             .collect();
         let chunks = Layout::default()
-            .direction(Direction::Horizontal)
+            .direction(self.split_orientation.clone())
             .constraints(constraints)
             .split(chunk);
         for (index, subproject) in self.project.subprojects.iter().enumerate() {
@@ -285,6 +287,12 @@ impl<'a> ProjectWidget<'a> {
                 if let Some(subproject) = selected_subproject {
                     subproject.tasks.move_up().ok();
                 }
+            }
+            (KeyCode::Char('\\'), KeyModifiers::NONE) => {
+                self.split_orientation = match self.split_orientation {
+                    Direction::Horizontal => Direction::Vertical,
+                    Direction::Vertical => Direction::Horizontal,
+                };
             }
             // File operations
             (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
