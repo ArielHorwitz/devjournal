@@ -144,31 +144,31 @@ fn draw_project<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
     draw_subprojects(frame, state, rect);
     if state.file_request.is_some() {
         state.filelist.draw(frame, center_rect(35, 20, rect, 1));
-    } else if state.project_state.prompt_request.is_some() {
-        state.project_state.prompt.draw(frame, rect);
+    } else if state.project.prompt_request.is_some() {
+        state.project.prompt.draw(frame, rect);
     };
 }
 
 fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
-    let subproject_count = state.project.len() as u16;
-    let percent_unfocus = ((100. - state.project_state.focused_width_percent as f32)
+    let subproject_count = state.project.subprojects.items().len() as u16;
+    let percent_unfocus = ((100. - state.project.focused_width_percent as f32)
         / (subproject_count as f32 - 1.).floor()) as u16;
+    let subproject_index = state
+        .project
+        .subprojects
+        .selected()
+        .expect("subproject not selected") as u16;
     let constraints: Vec<Constraint> = (0..subproject_count)
         .map(|i| {
-            if i == state
-                .project
-                .subprojects
-                .selected()
-                .expect("subproject not selected") as u16
-            {
-                Constraint::Percentage(state.project_state.focused_width_percent)
+            if i == subproject_index {
+                Constraint::Percentage(state.project.focused_width_percent)
             } else {
                 Constraint::Percentage(percent_unfocus)
             }
         })
         .collect();
     let chunks = Layout::default()
-        .direction(state.project_state.split_orientation.clone())
+        .direction(state.project.split_orientation.clone())
         .constraints(constraints)
         .split(rect);
     for (index, subproject) in state.project.subprojects.items().iter().enumerate() {

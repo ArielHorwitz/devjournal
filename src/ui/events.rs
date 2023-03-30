@@ -14,7 +14,7 @@ pub fn handle_event(key: KeyEvent, state: &mut App) {
             let result = {
                 if state.file_request.is_some() {
                     handle_filelist_event(key, state)
-                } else if state.project_state.prompt_request.is_some() {
+                } else if state.project.prompt_request.is_some() {
                     handle_prompt_event(key, state)
                 } else {
                     handle_subproject_event(key, state)
@@ -44,7 +44,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
         // Project operations
         (KeyCode::Char('n'), KeyModifiers::ALT) => {
             state.project = Project::default();
-            state.project_filepath = state.datadir.join(DEFAULT_PROJECT_FILENAME);
+            state.filepath = state.datadir.join(DEFAULT_PROJECT_FILENAME);
             reset_ui(state);
             return Some("New project created".to_owned());
         }
@@ -73,12 +73,12 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
             }
         }
         (KeyCode::Char('='), KeyModifiers::NONE) => {
-            state.project_state.focused_width_percent += 5;
+            state.project.focused_width_percent += 5;
             bind_focus_size(state);
         }
         (KeyCode::Char('-'), KeyModifiers::NONE) => {
-            state.project_state.focused_width_percent =
-                state.project_state.focused_width_percent.saturating_sub(5);
+            state.project.focused_width_percent =
+                state.project.focused_width_percent.saturating_sub(5);
             bind_focus_size(state);
         }
         (KeyCode::Char('N'), KeyModifiers::SHIFT) => {
@@ -178,7 +178,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
             }
         }
         (KeyCode::Char('\\'), KeyModifiers::NONE) => {
-            state.project_state.split_orientation = match state.project_state.split_orientation {
+            state.project.split_orientation = match state.project.split_orientation {
                 Direction::Horizontal => Direction::Vertical,
                 Direction::Vertical => Direction::Horizontal,
             };
@@ -193,7 +193,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
         (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
             return match save_project(state, None) {
                 Err(e) => Some(e),
-                Ok(_) => Some(format!("Saved project: {:?}", state.project_filepath)),
+                Ok(_) => Some(format!("Saved project: {:?}", state.filepath)),
             };
         }
         (KeyCode::Char('s'), KeyModifiers::ALT) => {
@@ -208,22 +208,22 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
 }
 
 fn handle_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
-    if let Some(pr) = state.project_state.prompt_request.clone() {
-        match state.project_state.prompt.handle_event(key) {
-            PromptEvent::Cancelled => state.project_state.prompt_request = None,
+    if let Some(pr) = state.project.prompt_request.clone() {
+        match state.project.prompt.handle_event(key) {
+            PromptEvent::Cancelled => state.project.prompt_request = None,
             PromptEvent::AwaitingResult(_) => (),
             PromptEvent::Result(result_text) => {
                 clear_prompt(state);
                 let subproject = state.project.subprojects.get_item_mut(None);
                 match pr {
                     PromptRequest::SetProjectPassword => {
-                        state.project_state.project_password = result_text;
+                        state.project.project_password = result_text;
                         return Some("Reset project password".to_owned());
                     }
                     PromptRequest::GetLoadPassword(name) => {
                         return match load_project(state, &name, &result_text) {
                             Err(e) => Some(e),
-                            Ok(_) => Some(format!("Loaded project: {:?}", state.project_filepath)),
+                            Ok(_) => Some(format!("Loaded project: {:?}", state.filepath)),
                         };
                     }
                     PromptRequest::RenameProject => {
@@ -260,7 +260,7 @@ fn handle_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
                         }
                     }
                 };
-                state.project_state.prompt_request = None;
+                state.project.prompt_request = None;
             }
         };
     }
@@ -285,7 +285,7 @@ fn handle_filelist_event(key: KeyEvent, state: &mut App) -> Option<String> {
                     FileRequest::Save => {
                         return match save_project(state, Some(&state.datadir.join(name))) {
                             Err(e) => Some(e),
-                            Ok(_) => Some(format!("Saved project {:?}", state.project_filepath)),
+                            Ok(_) => Some(format!("Saved project {:?}", state.filepath)),
                         };
                     }
                 }
@@ -297,10 +297,10 @@ fn handle_filelist_event(key: KeyEvent, state: &mut App) -> Option<String> {
 }
 
 fn clear_prompt(state: &mut App) {
-    state.project_state.prompt.set_prompt_text("Input:");
-    state.project_state.prompt.set_text("");
-    state.project_state.prompt_request = None;
-    state.project_state.prompt.set_password(false);
+    state.project.prompt.set_prompt_text("Input:");
+    state.project.prompt.set_text("");
+    state.project.prompt_request = None;
+    state.project.prompt.set_password(false);
 }
 
 fn set_prompt(state: &mut App, request: PromptRequest, prompt_text: &str) {
@@ -314,24 +314,21 @@ fn set_prompt_extra(
     prefill_text: &str,
     password: bool,
 ) {
-    state.project_state.prompt.set_prompt_text(prompt_text);
-    state.project_state.prompt.set_text(prefill_text);
-    state.project_state.prompt_request = Some(request);
-    state.project_state.prompt.set_password(password);
+    state.project.prompt.set_prompt_text(prompt_text);
+    state.project.prompt.set_text(prefill_text);
+    state.project.prompt_request = Some(request);
+    state.project.prompt.set_password(password);
 }
 
 fn reset_ui(state: &mut App) {
-    state.project_state.focused_width_percent = DEFAULT_WIDTH_PERCENT;
+    state.project.focused_width_percent = DEFAULT_WIDTH_PERCENT;
     bind_focus_size(state);
 }
 
 fn bind_focus_size(state: &mut App) {
     let min_width = (100. / state.project.subprojects.items().len() as f32).max(5.) as u16;
-    state.project_state.focused_width_percent = state
-        .project_state
-        .focused_width_percent
-        .min(95)
-        .max(min_width);
+    state.project.focused_width_percent =
+        state.project.focused_width_percent.min(95).max(min_width);
 }
 
 fn open_datadir(state: &App) -> Option<String> {
@@ -342,10 +339,10 @@ fn open_datadir(state: &App) -> Option<String> {
 }
 
 fn save_project(state: &mut App, filepath: Option<&PathBuf>) -> Result<(), String> {
-    let filepath = filepath.unwrap_or(&state.project_filepath);
+    let filepath = filepath.unwrap_or(&state.filepath);
     state
         .project
-        .save_file(filepath, &state.project_state.project_password)?;
+        .save_file(filepath, &state.project.project_password)?;
     state.filelist.refresh_filelist();
     Ok(())
 }
@@ -353,8 +350,8 @@ fn save_project(state: &mut App, filepath: Option<&PathBuf>) -> Result<(), Strin
 fn load_project(state: &mut App, name: &str, key: &str) -> Result<(), String> {
     let filepath = state.datadir.join(name);
     state.project = Project::from_file(&filepath, key)?;
-    state.project_state.project_password = key.to_owned();
-    state.project_filepath = filepath;
+    state.project.project_password = key.to_owned();
+    state.filepath = filepath;
     state.filelist.refresh_filelist();
     reset_ui(state);
     Ok(())

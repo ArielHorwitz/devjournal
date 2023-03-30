@@ -32,9 +32,8 @@ pub struct App<'a> {
     pub user_feedback_text: String,
     pub filelist: FileListWidget<'a>,
     pub file_request: Option<FileRequest>,
-    pub project_filepath: PathBuf,
-    pub project: Project,
-    pub project_state: ProjectState<'a>,
+    pub filepath: PathBuf,
+    pub project: Project<'a>,
 }
 
 impl<'a> App<'a> {
@@ -46,14 +45,15 @@ impl<'a> App<'a> {
             user_feedback_text: format!("Welcome to {title}."),
             filelist: FileListWidget::new(datadir.to_string_lossy().to_string().as_str()),
             file_request: None,
-            project_filepath: datadir.join(DEFAULT_PROJECT_FILENAME),
+            filepath: datadir.join(DEFAULT_PROJECT_FILENAME),
             project: Project::default(),
-            project_state: ProjectState::default(),
         }
     }
 }
 
-pub struct ProjectState<'a> {
+pub struct Project<'a> {
+    pub name: String,
+    pub subprojects: SelectionList<SubProject>,
     pub prompt: PromptWidget<'a>,
     pub prompt_request: Option<PromptRequest>,
     pub project_password: String,
@@ -61,9 +61,15 @@ pub struct ProjectState<'a> {
     pub split_orientation: Direction,
 }
 
-impl<'a> ProjectState<'a> {
-    pub fn default() -> ProjectState<'a> {
-        ProjectState {
+impl<'a> Project<'a> {
+    pub fn default() -> Project<'a> {
+        let mut subprojects = SelectionList::from_vec(vec![SubProject::default()]);
+        if subprojects.selected().is_none() {
+            subprojects.select_next();
+        }
+        Project {
+            name: "New Project".to_owned(),
+            subprojects,
             prompt: PromptWidget::default().width_hint(0.7),
             prompt_request: None,
             project_password: "".to_owned(),
@@ -71,46 +77,47 @@ impl<'a> ProjectState<'a> {
             split_orientation: Direction::Horizontal,
         }
     }
-}
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Project {
-    pub name: String,
-    pub subprojects: SelectionList<SubProject>,
-}
-
-impl Project {
-    pub fn default() -> Project {
-        let mut project = Project {
-            name: "New Project".to_owned(),
-            subprojects: SelectionList::from_vec(vec![SubProject::default()]),
-        };
-        project.subprojects.select_next();
-        project
-    }
-
-    pub fn from_file(filepath: &PathBuf, key: &str) -> Result<Project, String> {
+    pub fn from_file(filepath: &PathBuf, key: &str) -> Result<Project<'a>, String> {
         if !filepath.exists() {
             Project::default().save_file(filepath, key)?;
         }
         let encrypted = fs::read(filepath).map_err(|e| format!("failed to read file [{e}]"))?;
         let encoded = decrypt(&encrypted, key)?;
-        bincode::deserialize::<Project>(encoded.as_slice())
-            .map_err(|e| format!("failed to deserialize [{e}]"))
+        let serializable = bincode::deserialize::<SerializableProject>(encoded.as_slice())
+            .map_err(|e| format!("failed to deserialize [{e}]"))?;
+        Ok(Project::from_serializable(serializable))
     }
 
     pub fn save_file(&self, filepath: &PathBuf, key: &str) -> Result<(), String> {
-        let encoded = bincode::serialize(self).map_err(|e| format!("failed to serialize [{e}]"))?;
+        let encoded = bincode::serialize(&self.as_serializable())
+            .map_err(|e| format!("failed to serialize [{e}]"))?;
         let encrypted = encrypt(&encoded, key)?;
         fs::write(filepath, encrypted).map_err(|e| format!("failed to write file [{e}]"))
     }
 
-    pub fn len(&self) -> usize {
-        self.subprojects.items().len()
+    fn as_serializable(&self) -> SerializableProject {
+        SerializableProject {
+            name: self.name.clone(),
+            subprojects: self.subprojects.clone(),
+        }
+    }
+
+    fn from_serializable(data: SerializableProject) -> Project<'a> {
+        let mut project = Project::default();
+        project.name = data.name;
+        project.subprojects = data.subprojects;
+        project
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct SerializableProject {
+    name: String,
+    subprojects: SelectionList<SubProject>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SubProject {
     pub name: String,
     pub tasks: SelectionList<Task>,
