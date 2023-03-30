@@ -1,7 +1,7 @@
 // App state and logic
 pub mod appstate;
+pub mod data;
 pub mod list;
-pub mod project;
 use crate::ui::draw;
 use crate::ui::events;
 use appstate::AppState;

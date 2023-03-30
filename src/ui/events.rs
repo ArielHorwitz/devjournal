@@ -3,7 +3,7 @@ use crate::app::{
     appstate::{
         AppState, FileRequest, PromptRequest, DEFAULT_PROJECT_FILENAME, DEFAULT_WIDTH_PERCENT,
     },
-    project::{Project, SubProject, Task},
+    data::{Project, SubProject, Task},
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{path::PathBuf, process::Command};

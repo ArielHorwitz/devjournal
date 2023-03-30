@@ -1,6 +1,6 @@
 use crate::ui::widgets::{files::FileListWidget, prompt::PromptWidget};
 
-use super::project::Project;
+use super::data::Project;
 use std::path::PathBuf;
 use tui::layout::Direction;
 
