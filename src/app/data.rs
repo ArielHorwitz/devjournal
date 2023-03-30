@@ -18,8 +18,8 @@ pub struct Task {
 impl Task {
     pub fn new(desc: &str) -> Task {
         Task {
-            desc: desc.to_string(),
-            created_at: "2020-02-02 12:00:00".to_string(),
+            desc: desc.to_owned(),
+            created_at: "2020-02-02 12:00:00".to_owned(),
             completed_at: None,
         }
     }
@@ -27,7 +27,7 @@ impl Task {
 
 impl fmt::Display for Task {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&format!("{}", self.desc))
+        f.write_str(&self.desc.to_owned())
     }
 }
 
@@ -40,14 +40,14 @@ pub struct SubProject {
 impl SubProject {
     pub fn default() -> SubProject {
         SubProject {
-            name: "Tasks".to_string(),
+            name: "Tasks".to_owned(),
             tasks: SelectionList::new(),
         }
     }
 
     pub fn new(name: &str) -> SubProject {
         SubProject {
-            name: name.to_string(),
+            name: name.to_owned(),
             tasks: SelectionList::new(),
         }
     }
@@ -62,7 +62,7 @@ pub struct Project {
 impl Project {
     pub fn default() -> Project {
         let mut project = Project {
-            name: "New Project".to_string(),
+            name: "New Project".to_owned(),
             subprojects: SelectionList::from_vec(vec![SubProject::default()]),
         };
         project.subprojects.select_next();
@@ -75,17 +75,14 @@ impl Project {
             Project::default().save_file_encrypted(filepath, key)?;
         }
         File::open(filepath)
-            .map_err(|e| format!("Failed to create new file [{}]", e.to_string()))?
+            .map_err(|e| format!("Failed to create new file [{e}]"))?
             .read_to_end(&mut encoded)
-            .map_err(|e| format!("Failed to read from file [{}]", e.to_string()))?;
-        if key.len() > 0 {
+            .map_err(|e| format!("Failed to read from file [{e}]"))?;
+        if !key.is_empty() {
             encoded = decrypt(&encoded, key)?;
         }
         let mut project = bincode::deserialize::<Project>(encoded.as_slice()).map_err(|e| {
-            format!(
-                "Failed to deserialize - wrong password or corrupted file [{}]",
-                e.to_string()
-            )
+            format!("Failed to deserialize - wrong password or corrupted file [{e}]")
         })?;
         for index in 0..project.len() {
             if let Some(subproject) = project.subprojects.get_item_mut(Some(index)) {
@@ -99,15 +96,15 @@ impl Project {
     }
 
     pub fn save_file_encrypted(&self, filepath: &PathBuf, key: &str) -> Result<(), String> {
-        let mut encoded = bincode::serialize(&self)
-            .map_err(|e| format!("Failed to serialize [{}]", e.to_string()))?;
-        if key.len() > 0 {
+        let mut encoded =
+            bincode::serialize(&self).map_err(|e| format!("Failed to serialize [{e}]"))?;
+        if !key.is_empty() {
             encoded = encrypt(&encoded, key)?;
         }
-        let mut file = File::create(&filepath)
-            .map_err(|e| format!("Failed to create file [{}]", e.to_string()))?;
+        let mut file =
+            File::create(filepath).map_err(|e| format!("Failed to create file [{e}]"))?;
         file.write_all(&encoded)
-            .map_err(|e| format!("Failed to write to file [{}]", e.to_string()))?;
+            .map_err(|e| format!("Failed to write to file [{e}]"))?;
         Ok(())
     }
 

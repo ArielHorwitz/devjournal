@@ -48,7 +48,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut AppState) -> Option<String
             state.project = Project::default();
             state.project_filepath = state.datadir.join(DEFAULT_PROJECT_FILENAME);
             reset_ui(state);
-            return Some("New project created".to_string());
+            return Some("New project created".to_owned());
         }
         (KeyCode::Char('p'), KeyModifiers::ALT) => {
             set_prompt_extra(
@@ -101,7 +101,10 @@ fn handle_subproject_event(key: KeyEvent, state: &mut AppState) -> Option<String
         (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
             if let Some(subproject) = selected_subproject {
                 if let Some(task) = subproject.tasks.pop_selected() {
-                    let target_subproject = state.project.subprojects.next_item_mut().unwrap();
+                    let target_subproject =
+                        state.project.subprojects.next_item_mut().expect(
+                            "next subproject should exist if at least one subproject exists",
+                        );
                     target_subproject.tasks.insert_item(
                         target_subproject.tasks.selected(),
                         task,
@@ -114,7 +117,10 @@ fn handle_subproject_event(key: KeyEvent, state: &mut AppState) -> Option<String
         (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
             if let Some(subproject) = selected_subproject {
                 if let Some(task) = subproject.tasks.pop_selected() {
-                    let target_subproject = state.project.subprojects.prev_item_mut().unwrap();
+                    let target_subproject =
+                        state.project.subprojects.prev_item_mut().expect(
+                            "prev subproject should exist if at least one subproject exists",
+                        );
                     target_subproject.tasks.insert_item(
                         target_subproject.tasks.selected(),
                         task,
@@ -214,7 +220,7 @@ fn handle_prompt_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
                 match pr {
                     PromptRequest::SetProjectPassword => {
                         state.project_state.project_password = result_text;
-                        return Some("Reset project password".to_string());
+                        return Some("Reset project password".to_owned());
                     }
                     PromptRequest::GetLoadPassword(name) => {
                         return match load_project(state, &name, &result_text) {
@@ -274,7 +280,7 @@ fn handle_filelist_event(key: KeyEvent, state: &mut AppState) -> Option<String> 
                     FileRequest::Load => set_prompt_extra(
                         state,
                         PromptRequest::GetLoadPassword(name.clone()),
-                        &format!("Password for `{}`:", name),
+                        &format!("Password for `{name}`:"),
                         "",
                         true,
                     ),
@@ -332,11 +338,7 @@ fn bind_focus_size(state: &mut AppState) {
 
 fn open_datadir(state: &AppState) -> Option<String> {
     if let Err(e) = Command::new("xdg-open").arg(&state.datadir).spawn() {
-        return Some(format!(
-            "failed to open {:?} [{}]",
-            &state.datadir,
-            e.to_string()
-        ));
+        return Some(format!("failed to open {:?} [{e}]", &state.datadir,));
     }
     None
 }
@@ -346,7 +348,7 @@ fn save_project(state: &mut AppState, filepath: Option<&PathBuf>) -> Result<(), 
     state
         .project
         .save_file_encrypted(filepath, &state.project_state.project_password)
-        .map_err(|e| format!("failed to save; {}", e.to_string()))?;
+        .map_err(|e| format!("failed to save; {e}"))?;
     state.filelist.refresh_filelist();
     Ok(())
 }
@@ -354,7 +356,7 @@ fn save_project(state: &mut AppState, filepath: Option<&PathBuf>) -> Result<(), 
 fn load_project(state: &mut AppState, name: &str, key: &str) -> Result<(), String> {
     let filepath = state.datadir.join(name);
     state.project = Project::from_file_encrypted(&filepath, key)?;
-    state.project_state.project_password = key.to_string();
+    state.project_state.project_password = key.to_owned();
     state.project_filepath = filepath;
     state.filelist.refresh_filelist();
     reset_ui(state);

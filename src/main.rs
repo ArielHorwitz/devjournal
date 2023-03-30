@@ -29,7 +29,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     terminal.show_cursor()?;
     // Send errors to stderr
     if let Err(err) = res {
-        eprintln!("{:?}", err)
+        eprintln!("{err}")
     }
     Ok(())
 }

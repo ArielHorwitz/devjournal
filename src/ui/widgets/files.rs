@@ -40,10 +40,10 @@ impl<'a> FileListWidget<'a> {
     pub fn new(datadir: &str) -> FileListWidget<'a> {
         let mut widget = FileListWidget {
             prompt: PromptWidget::default().focus(false).margin(0),
-            datadir: datadir.to_string(),
+            datadir: datadir.to_owned(),
             filelist: SelectionList::new(),
             focus: Focus::FileList,
-            title: "Files".to_string(),
+            title: "Files".to_owned(),
             style_title: styles::title(),
             style_border: styles::border_highlighted(),
         };
@@ -53,27 +53,31 @@ impl<'a> FileListWidget<'a> {
     }
 
     pub fn set_title_text(&mut self, text: &str) {
-        self.title = text.to_string();
+        self.title = text.to_owned();
     }
 
     pub fn refresh_filelist(&mut self) {
         let mut entries: Vec<PathBuf> = read_dir(&self.datadir)
-            .unwrap()
-            .map(|res| res.unwrap().path())
+            .expect("cannot read directory")
+            .map(|res| res.expect("cannot read file").path())
             .filter(|x| x.is_file() && !x.ends_with(".config"))
             .collect();
         entries.sort_by_key(|file| {
             fs::metadata(file)
-                .unwrap()
+                .expect("cannot read metadata")
                 .modified()
-                .unwrap()
+                .expect("cannot read system time")
                 .elapsed()
-                .unwrap()
+                .expect("cannot file age")
         });
         self.filelist.clear_items();
         for file in entries {
-            self.filelist
-                .add_item(file.file_name().unwrap().to_str().unwrap().to_string());
+            self.filelist.add_item(
+                file.file_name()
+                    .expect("cannot get file name")
+                    .to_string_lossy()
+                    .to_string(),
+            );
         }
     }
 
@@ -97,10 +101,7 @@ impl<'a> FileListWidget<'a> {
                     .borders(Borders::ALL)
                     .border_style(self.style_border),
             )
-            .focus(match &self.focus {
-                Focus::FileList => true,
-                _ => false,
-            });
+            .focus(matches!(&self.focus, Focus::FileList));
         f.render_widget(file_list, chunks[0]);
         self.prompt.draw(f, chunks[1]);
     }
@@ -117,14 +118,12 @@ impl<'a> FileListWidget<'a> {
 
     fn handle_event_globals(&mut self, key: KeyEvent) -> FileListResult {
         match (key.code, key.modifiers) {
-            (KeyCode::Esc, KeyModifiers::NONE) => {
-                return FileListResult::Cancelled;
-            }
+            (KeyCode::Esc, KeyModifiers::NONE) => FileListResult::Cancelled,
             (KeyCode::F(5), KeyModifiers::NONE) => {
                 self.refresh_filelist();
                 FileListResult::AwaitingResult
             }
-            _ => return FileListResult::AwaitingResult,
+            _ => FileListResult::AwaitingResult,
         }
     }
 
@@ -138,10 +137,7 @@ impl<'a> FileListWidget<'a> {
             Focus::FileList => styles::border_highlighted(),
             _ => styles::border(),
         };
-        self.prompt.set_focus(match &self.focus {
-            Focus::Prompt => true,
-            _ => false,
-        });
+        self.prompt.set_focus(matches!(&self.focus, Focus::Prompt));
     }
 
     fn handle_event_list(&mut self, key: KeyEvent) -> FileListResult {
@@ -154,7 +150,8 @@ impl<'a> FileListWidget<'a> {
             (KeyCode::Char('k'), KeyModifiers::NONE) => self.filelist.select_prev(),
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
                 if let Some(name) = self.filelist.pop_selected() {
-                    remove_file(PathBuf::from(&self.datadir).join(&name)).unwrap();
+                    remove_file(PathBuf::from(&self.datadir).join(&name))
+                        .expect("failed to remove file");
                     self.refresh_filelist();
                     return FileListResult::Feedback(format!("Deleted project file: {name}"));
                 }

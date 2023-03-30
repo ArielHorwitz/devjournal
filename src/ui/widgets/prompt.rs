@@ -34,7 +34,7 @@ pub struct PromptWidget<'a> {
 impl<'a> PromptWidget<'a> {
     pub fn default() -> PromptWidget<'a> {
         let mut widget = PromptWidget {
-            prompt_text: "Input:".to_string(),
+            prompt_text: "Input:".to_owned(),
             max_width: 60,
             margin: 1,
             width_hint: 1.0,
@@ -69,11 +69,11 @@ impl<'a> PromptWidget<'a> {
     }
 
     pub fn set_prompt_text(&mut self, text: &str) {
-        self.prompt_text = text.to_string();
+        self.prompt_text = text.to_owned();
     }
 
     pub fn get_text(&mut self) -> String {
-        self.textarea.lines()[0].to_string()
+        self.textarea.lines()[0].to_owned()
     }
 
     pub fn set_text(&mut self, text: &str) {
@@ -128,7 +128,7 @@ impl<'a> PromptWidget<'a> {
             KeyCode::Enter => PromptEvent::Result(self.get_text()),
             _ => {
                 self.textarea.input(key);
-                return PromptEvent::AwaitingResult(self.get_text());
+                PromptEvent::AwaitingResult(self.get_text())
             }
         }
     }

@@ -112,7 +112,7 @@ where
         .iter()
         .map(|c| {
             let cells = vec![
-                Cell::from(Span::styled(format!("{:?}: ", c), styles::text())),
+                Cell::from(Span::styled(format!("{c:?}: "), styles::text())),
                 Cell::from(Span::styled(
                     "Foreground",
                     Style::default().bg(Color::Black).fg(*c),
@@ -155,7 +155,12 @@ fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &AppState, rect: Re
         / (subproject_count as f32 - 1.).floor()) as u16;
     let constraints: Vec<Constraint> = (0..subproject_count)
         .map(|i| {
-            if i == state.project.subprojects.selected().unwrap() as u16 {
+            if i == state
+                .project
+                .subprojects
+                .selected()
+                .expect("subproject not selected") as u16
+            {
                 Constraint::Percentage(state.project_state.focused_width_percent)
             } else {
                 Constraint::Percentage(percent_unfocus)

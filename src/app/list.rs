@@ -4,7 +4,7 @@ use std::fmt::Display;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SelectionList<T> {
     items: Vec<T>,
-    pub selection: Option<usize>,
+    selection: Option<usize>,
 }
 
 impl<T> SelectionList<T> {
@@ -63,10 +63,7 @@ impl<T> SelectionList<T> {
     }
 
     pub fn insert_item(&mut self, index: Option<usize>, item: T, select: bool) {
-        let index = match index {
-            Some(i) => i,
-            None => 0,
-        };
+        let index = index.unwrap_or(0);
         self.items.insert(index, item);
         if select {
             self.selection = Some(index);
@@ -88,7 +85,7 @@ impl<T> SelectionList<T> {
             } else {
                 Some(index - 1)
             }
-        } else if self.items.len() > 0 {
+        } else if !self.items.is_empty() {
             Some(self.items.len() - 1)
         } else {
             None
@@ -102,7 +99,7 @@ impl<T> SelectionList<T> {
             } else {
                 Some(index + 1)
             }
-        } else if self.items.len() > 0 {
+        } else if !self.items.is_empty() {
             Some(0)
         } else {
             None
@@ -141,7 +138,7 @@ impl<T> SelectionList<T> {
             }
             Ok(())
         } else {
-            Err("no item selected".to_string())
+            Err("no item selected".to_owned())
         }
     }
 
@@ -151,13 +148,16 @@ impl<T> SelectionList<T> {
                 self.items.swap(selected, selected + 1);
                 self.selection = Some(selected + 1);
             } else {
-                let element = self.items.pop().unwrap();
+                let element = self
+                    .items
+                    .pop()
+                    .ok_or("selection is Some, should have at least one item")?;
                 self.items.insert(0, element);
                 self.selection = Some(0);
             }
             Ok(())
         } else {
-            Err("no item selected".to_string())
+            Err("no item selected".to_owned())
         }
     }
 
@@ -176,7 +176,7 @@ impl<T> SelectionList<T> {
             None => None,
             Some(index) => {
                 let result = self.items.remove(index);
-                if self.items.len() == 0 {
+                if self.items.is_empty() {
                     self.selection = None;
                 } else if index >= self.items.len() {
                     self.selection = Some(self.items.len() - 1);

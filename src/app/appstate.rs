@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tui::layout::Direction;
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
-pub const DEFAULT_PROJECT_FILENAME: &'static str = "new_project";
+pub const DEFAULT_PROJECT_FILENAME: &str = "new_project";
 
 #[derive(Clone)]
 pub enum PromptRequest {
@@ -65,7 +65,7 @@ impl<'a> ProjectState<'a> {
         ProjectState {
             prompt: PromptWidget::default().width_hint(0.7),
             prompt_request: None,
-            project_password: "".to_string(),
+            project_password: "".to_owned(),
             focused_width_percent: DEFAULT_WIDTH_PERCENT,
             split_orientation: Direction::Horizontal,
         }
