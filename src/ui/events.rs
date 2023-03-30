@@ -41,7 +41,7 @@ fn handle_global_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
 }
 
 fn handle_subproject_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
-    let selected_subproject = state.project.subprojects.selected_value();
+    let selected_subproject = state.project.subprojects.get_item_mut(None);
     match (key.code, key.modifiers) {
         // Project operations
         (KeyCode::Char('n'), KeyModifiers::ALT) => {
@@ -101,7 +101,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut AppState) -> Option<String
         (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
             if let Some(subproject) = selected_subproject {
                 if let Some(task) = subproject.tasks.pop_selected() {
-                    let target_subproject = state.project.subprojects.next_value().unwrap();
+                    let target_subproject = state.project.subprojects.next_item_mut().unwrap();
                     target_subproject.tasks.insert_item(
                         target_subproject.tasks.selected(),
                         task,
@@ -114,7 +114,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut AppState) -> Option<String
         (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
             if let Some(subproject) = selected_subproject {
                 if let Some(task) = subproject.tasks.pop_selected() {
-                    let target_subproject = state.project.subprojects.prev_value().unwrap();
+                    let target_subproject = state.project.subprojects.prev_item_mut().unwrap();
                     target_subproject.tasks.insert_item(
                         target_subproject.tasks.selected(),
                         task,
@@ -135,7 +135,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut AppState) -> Option<String
         }
         (KeyCode::Char('r'), KeyModifiers::NONE) => {
             if let Some(subproject) = selected_subproject {
-                if let Some(task) = subproject.tasks.selected_value() {
+                if let Some(task) = subproject.tasks.get_item_mut(None) {
                     let desc = task.desc.clone();
                     set_prompt_extra(
                         state,
@@ -210,7 +210,7 @@ fn handle_prompt_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
             PromptEvent::AwaitingResult(_) => (),
             PromptEvent::Result(result_text) => {
                 clear_prompt(state);
-                let subproject = state.project.subprojects.selected_value();
+                let subproject = state.project.subprojects.get_item_mut(None);
                 match pr {
                     PromptRequest::SetProjectPassword => {
                         state.project_state.project_password = result_text;
@@ -246,7 +246,7 @@ fn handle_prompt_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
                     }
                     PromptRequest::RenameTask => {
                         if let Some(subproject) = subproject {
-                            if let Some(task) = subproject.tasks.selected_value() {
+                            if let Some(task) = subproject.tasks.get_item(None) {
                                 let new_task = Task {
                                     desc: result_text.clone(),
                                     ..task.clone()
@@ -322,7 +322,7 @@ fn reset_ui(state: &mut AppState) {
 }
 
 fn bind_focus_size(state: &mut AppState) {
-    let min_width = (100. / state.project.subprojects.len() as f32).max(5.) as u16;
+    let min_width = (100. / state.project.subprojects.items().len() as f32).max(5.) as u16;
     state.project_state.focused_width_percent = state
         .project_state
         .focused_width_percent

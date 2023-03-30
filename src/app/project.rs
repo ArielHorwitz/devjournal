@@ -1,4 +1,4 @@
-use super::list::InteractiveList;
+use super::list::SelectionList;
 use crate::crypto::{decrypt, encrypt};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -34,21 +34,21 @@ impl fmt::Display for Task {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SubProject {
     pub name: String,
-    pub tasks: InteractiveList<Task>,
+    pub tasks: SelectionList<Task>,
 }
 
 impl SubProject {
     pub fn default() -> SubProject {
         SubProject {
             name: "Tasks".to_string(),
-            tasks: InteractiveList::new(),
+            tasks: SelectionList::new(),
         }
     }
 
     pub fn new(name: &str) -> SubProject {
         SubProject {
             name: name.to_string(),
-            tasks: InteractiveList::new(),
+            tasks: SelectionList::new(),
         }
     }
 }
@@ -56,14 +56,14 @@ impl SubProject {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Project {
     pub name: String,
-    pub subprojects: InteractiveList<SubProject>,
+    pub subprojects: SelectionList<SubProject>,
 }
 
 impl Project {
     pub fn default() -> Project {
         let mut project = Project {
             name: "New Project".to_string(),
-            subprojects: InteractiveList::from_vec(vec![SubProject::default()]),
+            subprojects: SelectionList::from_vec(vec![SubProject::default()]),
         };
         project.subprojects.select_next();
         project
@@ -88,8 +88,10 @@ impl Project {
             )
         })?;
         for index in 0..project.len() {
-            project.subprojects.get_value(index).tasks.deselect();
-            project.subprojects.get_value(index).tasks.select_next();
+            if let Some(subproject) = project.subprojects.get_item_mut(Some(index)) {
+                subproject.tasks.deselect();
+                subproject.tasks.select_next();
+            }
         }
         project.subprojects.deselect();
         project.subprojects.select_next();
@@ -110,6 +112,6 @@ impl Project {
     }
 
     pub fn len(&self) -> usize {
-        self.subprojects.len()
+        self.subprojects.items().len()
     }
 }

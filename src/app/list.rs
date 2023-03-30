@@ -1,33 +1,61 @@
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, slice::Iter};
+use std::fmt::Display;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct InteractiveList<T> {
+pub struct SelectionList<T> {
     items: Vec<T>,
-    selection: Option<usize>,
+    pub selection: Option<usize>,
 }
 
-impl<T> InteractiveList<T> {
-    pub fn new() -> InteractiveList<T> {
-        InteractiveList {
+impl<T> SelectionList<T> {
+    pub fn new() -> SelectionList<T> {
+        SelectionList {
             items: Vec::default(),
             selection: None,
         }
     }
 
-    pub fn from_vec(vec: Vec<T>) -> InteractiveList<T> {
-        InteractiveList {
+    pub fn from_vec(vec: Vec<T>) -> SelectionList<T> {
+        SelectionList {
             items: vec,
             selection: None,
         }
     }
 
-    pub fn iter(&self) -> Iter<T> {
-        self.items.iter()
+    pub fn items(&self) -> &Vec<T> {
+        &self.items
     }
 
-    pub fn len(&self) -> usize {
-        self.items.len()
+    pub fn get_item(&self, index: Option<usize>) -> Option<&T> {
+        match index {
+            Some(i) => {
+                if i < self.items.len() {
+                    Some(&self.items[i])
+                } else {
+                    None
+                }
+            }
+            None => match self.selection {
+                Some(i) => Some(&self.items[i]),
+                None => None,
+            },
+        }
+    }
+
+    pub fn get_item_mut(&mut self, index: Option<usize>) -> Option<&mut T> {
+        match index {
+            Some(i) => {
+                if i < self.items.len() {
+                    Some(&mut self.items[i])
+                } else {
+                    None
+                }
+            }
+            None => match self.selection {
+                Some(i) => Some(&mut self.items[i]),
+                None => None,
+            },
+        }
     }
 
     pub fn add_item(&mut self, item: T) {
@@ -81,29 +109,12 @@ impl<T> InteractiveList<T> {
         }
     }
 
-    pub fn selected_value(&mut self) -> Option<&mut T> {
-        match self.selection {
-            None => None,
-            Some(index) => Some(&mut self.items[index]),
-        }
+    pub fn next_item_mut(&mut self) -> Option<&mut T> {
+        self.get_item_mut(self.next_index())
     }
 
-    pub fn get_value(&mut self, index: usize) -> &mut T {
-        &mut self.items[index]
-    }
-
-    pub fn next_value(&mut self) -> Option<&mut T> {
-        if let Some(index) = self.next_index() {
-            return Some(&mut self.items[index]);
-        }
-        None
-    }
-
-    pub fn prev_value(&mut self) -> Option<&mut T> {
-        if let Some(index) = self.prev_index() {
-            return Some(&mut self.items[index]);
-        }
-        None
+    pub fn prev_item_mut(&mut self) -> Option<&mut T> {
+        self.get_item_mut(self.prev_index())
     }
 
     pub fn deselect(&mut self) {
@@ -176,7 +187,7 @@ impl<T> InteractiveList<T> {
     }
 }
 
-impl<T> InteractiveList<T>
+impl<T> SelectionList<T>
 where
     T: Display,
 {

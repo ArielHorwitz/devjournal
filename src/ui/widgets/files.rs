@@ -1,5 +1,5 @@
 use super::{list::ListWidget, prompt::PromptWidget};
-use crate::{app::list::InteractiveList, ui::styles};
+use crate::{app::list::SelectionList, ui::styles};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{
     fs::{self, read_dir, remove_file},
@@ -29,7 +29,7 @@ enum Focus {
 pub struct FileListWidget<'a> {
     prompt: PromptWidget<'a>,
     datadir: String,
-    filelist: InteractiveList<String>,
+    filelist: SelectionList<String>,
     focus: Focus,
     title: String,
     style_title: Style,
@@ -41,7 +41,7 @@ impl<'a> FileListWidget<'a> {
         let mut widget = FileListWidget {
             prompt: PromptWidget::default().focus(false).margin(0),
             datadir: datadir.to_string(),
-            filelist: InteractiveList::new(),
+            filelist: SelectionList::new(),
             focus: Focus::FileList,
             title: "Files".to_string(),
             style_title: styles::title(),
@@ -160,9 +160,9 @@ impl<'a> FileListWidget<'a> {
                 }
             }
             (KeyCode::Enter, KeyModifiers::NONE) => {
-                if let Some(filename) = self.filelist.selected_value() {
+                if let Some(filename) = self.filelist.get_item(None) {
                     return FileListResult::Result(filename.clone());
-                };
+                }
             }
             _ => return FileListResult::AwaitingResult,
         }
