@@ -1,4 +1,4 @@
-use crate::app::appstate::AppState;
+use crate::app::data::App;
 pub mod events;
 mod styles;
 pub mod widgets;
@@ -12,7 +12,7 @@ use tui::{
     Frame,
 };
 
-pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &AppState, debug: bool) {
+pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &App, debug: bool) {
     let chunks = Layout::default()
         .constraints(vec![
             Constraint::Length(2),
@@ -28,7 +28,7 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &AppState, debug: bool) {
     draw_feedback_text(frame, state, chunks[2]);
 }
 
-fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &AppState, chunk: Rect) {
+fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
     let block = Block::default()
         .borders(Borders::BOTTOM)
         .border_style(styles::border());
@@ -58,7 +58,7 @@ fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &AppState, chunk: Rect)
     frame.render_widget(tabs, chunks[2]);
 }
 
-fn draw_feedback_text<B: Backend>(frame: &mut Frame<B>, state: &AppState, chunk: Rect) {
+fn draw_feedback_text<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(styles::border());
@@ -81,7 +81,7 @@ fn draw_feedback_text<B: Backend>(frame: &mut Frame<B>, state: &AppState, chunk:
     frame.render_widget(paragraph, chunks[1]);
 }
 
-pub fn draw_debug_tab<B>(frame: &mut Frame<B>, _state: &AppState, area: Rect)
+pub fn draw_debug_tab<B>(frame: &mut Frame<B>, _state: &App, area: Rect)
 where
     B: Backend,
 {
@@ -140,7 +140,7 @@ where
     frame.render_widget(table, chunks[0]);
 }
 
-fn draw_project<B: Backend>(frame: &mut Frame<B>, state: &AppState, rect: Rect) {
+fn draw_project<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
     draw_subprojects(frame, state, rect);
     if state.file_request.is_some() {
         state.filelist.draw(frame, center_rect(35, 20, rect, 1));
@@ -149,7 +149,7 @@ fn draw_project<B: Backend>(frame: &mut Frame<B>, state: &AppState, rect: Rect) 
     };
 }
 
-fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &AppState, rect: Rect) {
+fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
     let subproject_count = state.project.len() as u16;
     let percent_unfocus = ((100. - state.project_state.focused_width_percent as f32)
         / (subproject_count as f32 - 1.).floor()) as u16;

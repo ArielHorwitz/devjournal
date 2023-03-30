@@ -1,15 +1,13 @@
 use super::widgets::{files::FileListResult, prompt::PromptEvent};
-use crate::app::{
-    appstate::{
-        AppState, FileRequest, PromptRequest, DEFAULT_PROJECT_FILENAME, DEFAULT_WIDTH_PERCENT,
-    },
-    data::{Project, SubProject, Task},
+use crate::app::data::{
+    App, FileRequest, Project, PromptRequest, SubProject, Task, DEFAULT_PROJECT_FILENAME,
+    DEFAULT_WIDTH_PERCENT,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{path::PathBuf, process::Command};
 use tui::layout::Direction;
 
-pub fn handle_event(key: KeyEvent, state: &mut AppState) {
+pub fn handle_event(key: KeyEvent, state: &mut App) {
     match handle_global_event(key, state) {
         Some(feedback) => state.user_feedback_text = feedback,
         None => {
@@ -29,7 +27,7 @@ pub fn handle_event(key: KeyEvent, state: &mut AppState) {
     }
 }
 
-fn handle_global_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
+fn handle_global_event(key: KeyEvent, state: &mut App) -> Option<String> {
     match (key.code, key.modifiers) {
         // Global operations
         (KeyCode::Char('o'), KeyModifiers::ALT) => return open_datadir(state),
@@ -40,7 +38,7 @@ fn handle_global_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
     None
 }
 
-fn handle_subproject_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
+fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
     let selected_subproject = state.project.subprojects.get_item_mut(None);
     match (key.code, key.modifiers) {
         // Project operations
@@ -209,7 +207,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut AppState) -> Option<String
     None
 }
 
-fn handle_prompt_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
+fn handle_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
     if let Some(pr) = state.project_state.prompt_request.clone() {
         match state.project_state.prompt.handle_event(key) {
             PromptEvent::Cancelled => state.project_state.prompt_request = None,
@@ -269,7 +267,7 @@ fn handle_prompt_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
     None
 }
 
-fn handle_filelist_event(key: KeyEvent, state: &mut AppState) -> Option<String> {
+fn handle_filelist_event(key: KeyEvent, state: &mut App) -> Option<String> {
     match state.filelist.handle_event(key) {
         FileListResult::AwaitingResult => (),
         FileListResult::Cancelled => state.file_request = None,
@@ -298,19 +296,19 @@ fn handle_filelist_event(key: KeyEvent, state: &mut AppState) -> Option<String> 
     None
 }
 
-fn clear_prompt(state: &mut AppState) {
+fn clear_prompt(state: &mut App) {
     state.project_state.prompt.set_prompt_text("Input:");
     state.project_state.prompt.set_text("");
     state.project_state.prompt_request = None;
     state.project_state.prompt.set_password(false);
 }
 
-fn set_prompt(state: &mut AppState, request: PromptRequest, prompt_text: &str) {
+fn set_prompt(state: &mut App, request: PromptRequest, prompt_text: &str) {
     set_prompt_extra(state, request, prompt_text, "", false)
 }
 
 fn set_prompt_extra(
-    state: &mut AppState,
+    state: &mut App,
     request: PromptRequest,
     prompt_text: &str,
     prefill_text: &str,
@@ -322,12 +320,12 @@ fn set_prompt_extra(
     state.project_state.prompt.set_password(password);
 }
 
-fn reset_ui(state: &mut AppState) {
+fn reset_ui(state: &mut App) {
     state.project_state.focused_width_percent = DEFAULT_WIDTH_PERCENT;
     bind_focus_size(state);
 }
 
-fn bind_focus_size(state: &mut AppState) {
+fn bind_focus_size(state: &mut App) {
     let min_width = (100. / state.project.subprojects.items().len() as f32).max(5.) as u16;
     state.project_state.focused_width_percent = state
         .project_state
@@ -336,14 +334,14 @@ fn bind_focus_size(state: &mut AppState) {
         .max(min_width);
 }
 
-fn open_datadir(state: &AppState) -> Option<String> {
+fn open_datadir(state: &App) -> Option<String> {
     if let Err(e) = Command::new("xdg-open").arg(&state.datadir).spawn() {
         return Some(format!("failed to open {:?} [{e}]", &state.datadir,));
     }
     None
 }
 
-fn save_project(state: &mut AppState, filepath: Option<&PathBuf>) -> Result<(), String> {
+fn save_project(state: &mut App, filepath: Option<&PathBuf>) -> Result<(), String> {
     let filepath = filepath.unwrap_or(&state.project_filepath);
     state
         .project
@@ -353,7 +351,7 @@ fn save_project(state: &mut AppState, filepath: Option<&PathBuf>) -> Result<(), 
     Ok(())
 }
 
-fn load_project(state: &mut AppState, name: &str, key: &str) -> Result<(), String> {
+fn load_project(state: &mut App, name: &str, key: &str) -> Result<(), String> {
     let filepath = state.datadir.join(name);
     state.project = Project::from_file_encrypted(&filepath, key)?;
     state.project_state.project_password = key.to_owned();

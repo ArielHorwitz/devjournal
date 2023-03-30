@@ -1,14 +1,13 @@
 // App state and logic
-pub mod appstate;
 pub mod data;
 pub mod list;
 use crate::ui::draw;
 use crate::ui::events;
-use appstate::AppState;
 use crossterm::{
     event::{Event, KeyCode, KeyModifiers},
     terminal::SetTitle,
 };
+use data::App;
 use platform_dirs::AppDirs;
 use std::{
     fs,
@@ -25,7 +24,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
         .data_dir;
     fs::create_dir_all(&datadir)?;
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
-    let mut app_state = AppState::new("DevBoard", datadir);
+    let mut app_state = App::new("DevBoard", datadir);
     let mut last_tick = Instant::now();
     loop {
         terminal.draw(|frame| draw(frame, &app_state, false))?;
