@@ -267,7 +267,7 @@ fn handle_filelist_event(key: KeyEvent, state: &mut AppState) -> Option<String> 
     match state.filelist.handle_event(key) {
         FileListResult::AwaitingResult => (),
         FileListResult::Cancelled => state.file_request = None,
-        FileListResult::Feedback(_message) => (),
+        FileListResult::Feedback(message) => state.user_feedback_text = message,
         FileListResult::Result(name) => {
             if let Some(fr) = &state.file_request {
                 match fr {
