@@ -345,15 +345,14 @@ fn save_project(state: &mut App, filepath: Option<&PathBuf>) -> Result<(), Strin
     let filepath = filepath.unwrap_or(&state.project_filepath);
     state
         .project
-        .save_file_encrypted(filepath, &state.project_state.project_password)
-        .map_err(|e| format!("failed to save; {e}"))?;
+        .save_file(filepath, &state.project_state.project_password)?;
     state.filelist.refresh_filelist();
     Ok(())
 }
 
 fn load_project(state: &mut App, name: &str, key: &str) -> Result<(), String> {
     let filepath = state.datadir.join(name);
-    state.project = Project::from_file_encrypted(&filepath, key)?;
+    state.project = Project::from_file(&filepath, key)?;
     state.project_state.project_password = key.to_owned();
     state.project_filepath = filepath;
     state.filelist.refresh_filelist();

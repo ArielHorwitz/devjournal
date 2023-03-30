@@ -2,12 +2,7 @@ use super::list::SelectionList;
 use crate::crypto::{decrypt, encrypt};
 use crate::ui::widgets::{files::FileListWidget, prompt::PromptWidget};
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt,
-    fs::File,
-    io::{Read, Write},
-    path::PathBuf,
-};
+use std::{fmt, fs, path::PathBuf};
 use tui::layout::Direction;
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
@@ -94,43 +89,20 @@ impl Project {
         project
     }
 
-    pub fn from_file_encrypted(filepath: &PathBuf, key: &str) -> Result<Project, String> {
-        let mut encoded: Vec<u8> = Vec::new();
+    pub fn from_file(filepath: &PathBuf, key: &str) -> Result<Project, String> {
         if !filepath.exists() {
-            Project::default().save_file_encrypted(filepath, key)?;
+            Project::default().save_file(filepath, key)?;
         }
-        File::open(filepath)
-            .map_err(|e| format!("Failed to create new file [{e}]"))?
-            .read_to_end(&mut encoded)
-            .map_err(|e| format!("Failed to read from file [{e}]"))?;
-        if !key.is_empty() {
-            encoded = decrypt(&encoded, key)?;
-        }
-        let mut project = bincode::deserialize::<Project>(encoded.as_slice()).map_err(|e| {
-            format!("Failed to deserialize - wrong password or corrupted file [{e}]")
-        })?;
-        for index in 0..project.len() {
-            if let Some(subproject) = project.subprojects.get_item_mut(Some(index)) {
-                subproject.tasks.deselect();
-                subproject.tasks.select_next();
-            }
-        }
-        project.subprojects.deselect();
-        project.subprojects.select_next();
-        Ok(project)
+        let encrypted = fs::read(filepath).map_err(|e| format!("failed to read file [{e}]"))?;
+        let encoded = decrypt(&encrypted, key)?;
+        bincode::deserialize::<Project>(encoded.as_slice())
+            .map_err(|e| format!("failed to deserialize [{e}]"))
     }
 
-    pub fn save_file_encrypted(&self, filepath: &PathBuf, key: &str) -> Result<(), String> {
-        let mut encoded =
-            bincode::serialize(&self).map_err(|e| format!("Failed to serialize [{e}]"))?;
-        if !key.is_empty() {
-            encoded = encrypt(&encoded, key)?;
-        }
-        let mut file =
-            File::create(filepath).map_err(|e| format!("Failed to create file [{e}]"))?;
-        file.write_all(&encoded)
-            .map_err(|e| format!("Failed to write to file [{e}]"))?;
-        Ok(())
+    pub fn save_file(&self, filepath: &PathBuf, key: &str) -> Result<(), String> {
+        let encoded = bincode::serialize(self).map_err(|e| format!("failed to serialize [{e}]"))?;
+        let encrypted = encrypt(&encoded, key)?;
+        fs::write(filepath, encrypted).map_err(|e| format!("failed to write file [{e}]"))
     }
 
     pub fn len(&self) -> usize {
