@@ -41,7 +41,7 @@ impl<'a> FileListWidget<'a> {
         let mut widget = FileListWidget {
             prompt: PromptWidget::default().focus(false).margin(0),
             datadir: datadir.to_owned(),
-            filelist: SelectionList::new(),
+            filelist: SelectionList::default(),
             focus: Focus::FileList,
             title: "Files".to_owned(),
             style_title: styles::title(),

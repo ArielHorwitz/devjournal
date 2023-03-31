@@ -31,8 +31,8 @@ pub struct PromptWidget<'a> {
     password: bool,
 }
 
-impl<'a> PromptWidget<'a> {
-    pub fn default() -> PromptWidget<'a> {
+impl<'a> Default for PromptWidget<'a> {
+    fn default() -> PromptWidget<'a> {
         let mut widget = PromptWidget {
             prompt_text: "Input:".to_owned(),
             max_width: 60,
@@ -47,7 +47,9 @@ impl<'a> PromptWidget<'a> {
         widget.set_focus(true);
         widget
     }
+}
 
+impl<'a> PromptWidget<'a> {
     pub fn focus(mut self, focus: bool) -> PromptWidget<'a> {
         self.set_focus(focus);
         self

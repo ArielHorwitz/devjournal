@@ -7,14 +7,16 @@ pub struct SelectionList<T> {
     selection: Option<usize>,
 }
 
-impl<T> SelectionList<T> {
-    pub fn new() -> SelectionList<T> {
+impl<T> Default for SelectionList<T> {
+    fn default() -> SelectionList<T> {
         SelectionList {
             items: Vec::default(),
             selection: None,
         }
     }
+}
 
+impl<T> SelectionList<T> {
     pub fn from_vec(vec: Vec<T>) -> SelectionList<T> {
         SelectionList {
             items: vec,

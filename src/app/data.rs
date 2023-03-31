@@ -61,15 +61,11 @@ pub struct Project<'a> {
     pub split_orientation: Direction,
 }
 
-impl<'a> Project<'a> {
-    pub fn default() -> Project<'a> {
-        let mut subprojects = SelectionList::from_vec(vec![SubProject::default()]);
-        if subprojects.selected().is_none() {
-            subprojects.select_next();
-        }
+impl<'a> Default for Project<'a> {
+    fn default() -> Project<'a> {
         Project {
             name: "New Project".to_owned(),
-            subprojects,
+            subprojects: SelectionList::from_vec(vec![SubProject::default()]),
             prompt: PromptWidget::default().width_hint(0.7),
             prompt_request: None,
             project_password: "".to_owned(),
@@ -77,7 +73,9 @@ impl<'a> Project<'a> {
             split_orientation: Direction::Horizontal,
         }
     }
+}
 
+impl<'a> Project<'a> {
     pub fn from_file(filepath: &PathBuf, key: &str) -> Result<Project<'a>, String> {
         if !filepath.exists() {
             Project::default().save_file(filepath, key)?;
@@ -104,10 +102,15 @@ impl<'a> Project<'a> {
     }
 
     fn from_serializable(data: SerializableProject) -> Project<'a> {
-        let mut project = Project::default();
-        project.name = data.name;
-        project.subprojects = data.subprojects;
-        project
+        Project {
+            name: data.name,
+            subprojects: data.subprojects,
+            prompt: PromptWidget::default().width_hint(0.7),
+            prompt_request: None,
+            project_password: "".to_owned(),
+            focused_width_percent: DEFAULT_WIDTH_PERCENT,
+            split_orientation: Direction::Horizontal,
+        }
     }
 }
 
@@ -123,18 +126,20 @@ pub struct SubProject {
     pub tasks: SelectionList<Task>,
 }
 
-impl SubProject {
-    pub fn default() -> SubProject {
+impl Default for SubProject {
+    fn default() -> SubProject {
         SubProject {
             name: "Tasks".to_owned(),
-            tasks: SelectionList::new(),
+            tasks: SelectionList::default(),
         }
     }
+}
 
+impl SubProject {
     pub fn new(name: &str) -> SubProject {
         SubProject {
             name: name.to_owned(),
-            tasks: SelectionList::new(),
+            tasks: SelectionList::default(),
         }
     }
 }
