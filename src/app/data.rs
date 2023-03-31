@@ -53,12 +53,12 @@ impl<'a> App<'a> {
 #[derive(Serialize, Deserialize)]
 pub struct Project<'a> {
     pub name: String,
+    pub password: String,
     pub subprojects: SelectionList<SubProject>,
     #[serde(skip)]
     pub prompt: PromptWidget<'a>,
     #[serde(skip)]
     pub prompt_request: Option<PromptRequest>,
-    pub project_password: String,
     pub focused_width_percent: u16,
     pub split_vertical: bool,
 }
@@ -67,10 +67,10 @@ impl<'a> Default for Project<'a> {
     fn default() -> Project<'a> {
         Project {
             name: "New Project".to_owned(),
+            password: "".to_owned(),
             subprojects: SelectionList::from_vec(vec![SubProject::default()]),
             prompt: PromptWidget::default().width_hint(0.7),
             prompt_request: None,
-            project_password: "".to_owned(),
             focused_width_percent: DEFAULT_WIDTH_PERCENT,
             split_vertical: false,
         }

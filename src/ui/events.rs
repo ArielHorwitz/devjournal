@@ -213,7 +213,7 @@ fn handle_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
                 let subproject = state.project.subprojects.get_item_mut(None);
                 match pr {
                     PromptRequest::SetProjectPassword => {
-                        state.project.project_password = result_text;
+                        state.project.password = result_text;
                         return Some("Reset project password".to_owned());
                     }
                     PromptRequest::GetLoadPassword(name) => {
@@ -336,9 +336,7 @@ fn open_datadir(state: &App) -> Option<String> {
 
 fn save_project(state: &mut App, filepath: Option<&PathBuf>) -> Result<(), String> {
     let filepath = filepath.unwrap_or(&state.filepath);
-    state
-        .project
-        .save_file(filepath, &state.project.project_password)?;
+    state.project.save_file(filepath, &state.project.password)?;
     state.filelist.refresh_filelist();
     Ok(())
 }
@@ -346,7 +344,7 @@ fn save_project(state: &mut App, filepath: Option<&PathBuf>) -> Result<(), Strin
 fn load_project(state: &mut App, name: &str, key: &str) -> Result<(), String> {
     let filepath = state.datadir.join(name);
     state.project = Project::from_file(&filepath, key)?;
-    state.project.project_password = key.to_owned();
+    state.project.password = key.to_owned();
     state.filepath = filepath;
     state.filelist.refresh_filelist();
     reset_ui(state);
