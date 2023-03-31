@@ -5,7 +5,6 @@ use crate::app::data::{
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{path::PathBuf, process::Command};
-use tui::layout::Direction;
 
 pub fn handle_event(key: KeyEvent, state: &mut App) {
     match handle_global_event(key, state) {
@@ -178,10 +177,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
             }
         }
         (KeyCode::Char('\\'), KeyModifiers::NONE) => {
-            state.project.split_orientation = match state.project.split_orientation {
-                Direction::Horizontal => Direction::Vertical,
-                Direction::Vertical => Direction::Horizontal,
-            };
+            state.project.split_vertical = !state.project.split_vertical;
         }
         // File operations
         (KeyCode::Char('o'), KeyModifiers::CONTROL) => {

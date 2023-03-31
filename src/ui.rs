@@ -167,8 +167,12 @@ fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
             }
         })
         .collect();
+    let direction = match state.project.split_vertical {
+        true => Direction::Vertical,
+        false => Direction::Horizontal,
+    };
     let chunks = Layout::default()
-        .direction(state.project.split_orientation.clone())
+        .direction(direction)
         .constraints(constraints)
         .split(rect);
     for (index, subproject) in state.project.subprojects.iter().enumerate() {

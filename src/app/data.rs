@@ -3,7 +3,6 @@ use crate::crypto::{decrypt, encrypt};
 use crate::ui::widgets::{files::FileListWidget, prompt::PromptWidget};
 use serde::{Deserialize, Serialize};
 use std::{fmt, fs, path::PathBuf};
-use tui::layout::Direction;
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
 pub const DEFAULT_PROJECT_FILENAME: &str = "new_project";
@@ -51,14 +50,17 @@ impl<'a> App<'a> {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Project<'a> {
     pub name: String,
     pub subprojects: SelectionList<SubProject>,
+    #[serde(skip)]
     pub prompt: PromptWidget<'a>,
+    #[serde(skip)]
     pub prompt_request: Option<PromptRequest>,
     pub project_password: String,
     pub focused_width_percent: u16,
-    pub split_orientation: Direction,
+    pub split_vertical: bool,
 }
 
 impl<'a> Default for Project<'a> {
@@ -70,7 +72,7 @@ impl<'a> Default for Project<'a> {
             prompt_request: None,
             project_password: "".to_owned(),
             focused_width_percent: DEFAULT_WIDTH_PERCENT,
-            split_orientation: Direction::Horizontal,
+            split_vertical: false,
         }
     }
 }
@@ -82,42 +84,16 @@ impl<'a> Project<'a> {
         }
         let encrypted = fs::read(filepath).map_err(|e| format!("failed to read file [{e}]"))?;
         let encoded = decrypt(&encrypted, key)?;
-        let serializable = bincode::deserialize::<SerializableProject>(encoded.as_slice())
-            .map_err(|e| format!("failed to deserialize [{e}]"))?;
-        Ok(Project::from_serializable(serializable))
+        bincode::deserialize::<Project>(encoded.as_slice())
+            .map_err(|e| format!("failed to deserialize [{e}]"))
     }
 
     pub fn save_file(&self, filepath: &PathBuf, key: &str) -> Result<(), String> {
-        let encoded = bincode::serialize(&self.as_serializable())
-            .map_err(|e| format!("failed to serialize [{e}]"))?;
+        let encoded =
+            bincode::serialize(&self).map_err(|e| format!("failed to serialize [{e}]"))?;
         let encrypted = encrypt(&encoded, key)?;
         fs::write(filepath, encrypted).map_err(|e| format!("failed to write file [{e}]"))
     }
-
-    fn as_serializable(&self) -> SerializableProject {
-        SerializableProject {
-            name: self.name.clone(),
-            subprojects: self.subprojects.clone(),
-        }
-    }
-
-    fn from_serializable(data: SerializableProject) -> Project<'a> {
-        Project {
-            name: data.name,
-            subprojects: data.subprojects,
-            prompt: PromptWidget::default().width_hint(0.7),
-            prompt_request: None,
-            project_password: "".to_owned(),
-            focused_width_percent: DEFAULT_WIDTH_PERCENT,
-            split_orientation: Direction::Horizontal,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct SerializableProject {
-    name: String,
-    subprojects: SelectionList<SubProject>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
