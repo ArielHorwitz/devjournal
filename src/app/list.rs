@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{fmt::Display, slice::Iter};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SelectionList<T> {
@@ -185,6 +185,10 @@ impl<T> SelectionList<T> {
             }
         }
     }
+
+    pub fn iter(&self) -> Iter<'_, T> {
+        self.items.iter()
+    }
 }
 
 impl<T> SelectionList<T>
@@ -192,6 +196,6 @@ where
     T: Display,
 {
     pub fn as_strings(&self) -> Vec<String> {
-        self.items.iter().map(|t| t.to_string()).collect()
+        self.iter().map(|t| t.to_string()).collect()
     }
 }

@@ -167,7 +167,7 @@ fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
         .direction(state.project.split_orientation.clone())
         .constraints(constraints)
         .split(rect);
-    for (index, subproject) in state.project.subprojects.items().iter().enumerate() {
+    for (index, subproject) in state.project.subprojects.iter().enumerate() {
         let mut border_style = styles::border();
         let mut title_style = styles::title_dim();
         let mut focus = false;
