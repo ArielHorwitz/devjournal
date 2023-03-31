@@ -151,8 +151,12 @@ fn draw_project<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
 
 fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
     let subproject_count = state.project.subprojects.items().len() as u16;
-    let percent_unfocus = ((100. - state.project.focused_width_percent as f32)
-        / (subproject_count as f32 - 1.).floor()) as u16;
+    let percent_unfocus = if subproject_count > 1 {
+        let remainder = 100. - state.project.focused_width_percent as f32;
+        (remainder / (subproject_count as f32 - 1.).floor()) as u16
+    } else {
+        100
+    };
     let subproject_index = state.project.subprojects.selected();
     let constraints: Vec<Constraint> = (0..subproject_count)
         .map(|i| {
