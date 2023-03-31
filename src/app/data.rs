@@ -1,11 +1,37 @@
 use super::list::SelectionList;
 use crate::crypto::{decrypt, encrypt};
 use crate::ui::widgets::{files::FileListWidget, prompt::PromptWidget};
-use serde::{Deserialize, Serialize};
+use serde::{self, Deserialize, Serialize};
 use std::{fmt, fs, path::PathBuf};
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
 pub const DEFAULT_PROJECT_FILENAME: &str = "new_project";
+
+pub fn load_decrypt<T>(filepath: &PathBuf, key: &str) -> Result<T, String>
+where
+    T: DataDeserialize<T>,
+{
+    let encrypted = fs::read(filepath).map_err(|e| format!("failed to read file [{e}]"))?;
+    let decrypted = decrypt(&encrypted, key)?;
+    T::deserialize(decrypted)
+}
+
+pub fn save_encrypt<T>(object: &T, filepath: &PathBuf, key: &str) -> Result<(), String>
+where
+    T: DataSerialize<T>,
+{
+    let encoded = T::serialize(object)?;
+    let encrypted = encrypt(&encoded, key)?;
+    fs::write(filepath, encrypted).map_err(|e| format!("failed to write file [{e}]"))
+}
+
+pub trait DataSerialize<T> {
+    fn serialize(decoded: &T) -> Result<Vec<u8>, String>;
+}
+
+pub trait DataDeserialize<T> {
+    fn deserialize(encoded: Vec<u8>) -> Result<T, String>;
+}
 
 #[derive(Clone)]
 pub enum PromptRequest {
@@ -77,26 +103,20 @@ impl<'a> Default for Project<'a> {
     }
 }
 
-impl<'a> Project<'a> {
-    pub fn from_file(filepath: &PathBuf, key: &str) -> Result<Project<'a>, String> {
-        if !filepath.exists() {
-            Project::default().save_file(filepath, key)?;
-        }
-        let encrypted = fs::read(filepath).map_err(|e| format!("failed to read file [{e}]"))?;
-        let encoded = decrypt(&encrypted, key)?;
-        bincode::deserialize::<Project>(encoded.as_slice())
-            .map_err(|e| format!("failed to deserialize [{e}]"))
-    }
-
-    pub fn save_file(&self, filepath: &PathBuf, key: &str) -> Result<(), String> {
-        let encoded =
-            bincode::serialize(&self).map_err(|e| format!("failed to serialize [{e}]"))?;
-        let encrypted = encrypt(&encoded, key)?;
-        fs::write(filepath, encrypted).map_err(|e| format!("failed to write file [{e}]"))
+impl<'a> DataSerialize<Project<'a>> for Project<'a> {
+    fn serialize(project: &Project) -> Result<Vec<u8>, String> {
+        bincode::serialize(&project).map_err(|e| format!("failed to serialize [{e}]"))
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+impl<'a> DataDeserialize<Project<'a>> for Project<'a> {
+    fn deserialize(encoded: Vec<u8>) -> Result<Project<'a>, String> {
+        bincode::deserialize::<Project>(encoded.as_slice())
+            .map_err(|e| format!("failed to deserialize [{e}]"))
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct SubProject {
     pub name: String,
     pub tasks: SelectionList<Task>,

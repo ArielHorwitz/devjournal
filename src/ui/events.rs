@@ -1,7 +1,7 @@
 use super::widgets::{files::FileListResult, prompt::PromptEvent};
 use crate::app::data::{
-    App, FileRequest, Project, PromptRequest, SubProject, Task, DEFAULT_PROJECT_FILENAME,
-    DEFAULT_WIDTH_PERCENT,
+    load_decrypt, save_encrypt, App, FileRequest, Project, PromptRequest, SubProject, Task,
+    DEFAULT_PROJECT_FILENAME, DEFAULT_WIDTH_PERCENT,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{path::PathBuf, process::Command};
@@ -336,14 +336,17 @@ fn open_datadir(state: &App) -> Option<String> {
 
 fn save_project(state: &mut App, filepath: Option<&PathBuf>) -> Result<(), String> {
     let filepath = filepath.unwrap_or(&state.filepath);
-    state.project.save_file(filepath, &state.project.password)?;
+    save_encrypt(&state.project, filepath, &state.project.password)?;
     state.filelist.refresh_filelist();
     Ok(())
 }
 
 fn load_project(state: &mut App, name: &str, key: &str) -> Result<(), String> {
     let filepath = state.datadir.join(name);
-    state.project = Project::from_file(&filepath, key)?;
+    if !filepath.exists() {
+        return Err("file does not exist".to_owned());
+    }
+    state.project = load_decrypt(&filepath, key)?;
     state.project.password = key.to_owned();
     state.filepath = filepath;
     state.filelist.refresh_filelist();
