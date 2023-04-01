@@ -75,6 +75,10 @@ impl<'a> App<'a> {
             project: Project::default(),
         }
     }
+
+    pub fn project(&mut self) -> Option<&mut Project<'a>> {
+        Some(&mut self.project)
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -88,6 +92,12 @@ pub struct Project<'a> {
     pub prompt_request: Option<PromptRequest>,
     pub focused_width_percent: u16,
     pub split_vertical: bool,
+}
+
+impl<'a> Project<'a> {
+    pub fn subproject(&mut self) -> Option<&mut SubProject> {
+        self.subprojects.get_item_mut(None)
+    }
 }
 
 impl<'a> Clone for Project<'a> {
@@ -166,6 +176,10 @@ impl SubProject {
             name: name.to_owned(),
             tasks: SelectionList::default(),
         }
+    }
+
+    pub fn task(&mut self) -> Option<&mut Task> {
+        self.tasks.get_item_mut(None)
     }
 }
 

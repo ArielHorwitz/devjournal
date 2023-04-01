@@ -38,7 +38,6 @@ fn handle_global_event(key: KeyEvent, state: &mut App) -> Option<String> {
 }
 
 fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
-    let selected_subproject = state.project.subprojects.get_item_mut(None);
     match (key.code, key.modifiers) {
         // Project operations
         (KeyCode::Char('n'), KeyModifiers::ALT) => {
@@ -48,10 +47,11 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
             return Some("New project created".to_owned());
         }
         (KeyCode::Char('p'), KeyModifiers::ALT) => {
+            let name = state.project()?.name.clone();
             set_prompt_extra(
                 state,
                 PromptRequest::SetProjectPassword,
-                &format!("Set new password for `{}`:", state.project.name),
+                &format!("Set new password for `{name}`:"),
                 "",
                 true,
             );
@@ -60,43 +60,41 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
             set_prompt(state, PromptRequest::RenameProject, "New Project Name:");
         }
         (KeyCode::Char('R'), KeyModifiers::SHIFT) => {
-            if let Some(subproject) = selected_subproject {
-                let name = subproject.name.clone();
-                set_prompt_extra(
-                    state,
-                    PromptRequest::RenameSubProject,
-                    "New Subproject Name:",
-                    &name,
-                    false,
-                );
-            }
+            let name = state.project()?.subproject()?.name.clone();
+            set_prompt_extra(
+                state,
+                PromptRequest::RenameSubProject,
+                "New Subproject Name:",
+                &name,
+                false,
+            );
         }
         (KeyCode::Char('='), KeyModifiers::NONE) => {
-            state.project.focused_width_percent += 5;
+            state.project()?.focused_width_percent += 5;
             bind_focus_size(state);
         }
         (KeyCode::Char('-'), KeyModifiers::NONE) => {
-            state.project.focused_width_percent =
-                state.project.focused_width_percent.saturating_sub(5);
+            state.project()?.focused_width_percent =
+                state.project()?.focused_width_percent.saturating_sub(5);
             bind_focus_size(state);
         }
         (KeyCode::Char('N'), KeyModifiers::SHIFT) => {
             set_prompt(state, PromptRequest::AddSubProject, "New Subproject Name:");
         }
         (KeyCode::Char('D'), KeyModifiers::SHIFT) => {
-            state.project.subprojects.pop_selected();
+            state.project()?.subprojects.pop_selected();
             bind_focus_size(state);
         }
-        (KeyCode::Char('l'), KeyModifiers::NONE) => state.project.subprojects.select_next(),
-        (KeyCode::Char('h'), KeyModifiers::NONE) => state.project.subprojects.select_prev(),
+        (KeyCode::Char('l'), KeyModifiers::NONE) => state.project()?.subprojects.select_next(),
+        (KeyCode::Char('h'), KeyModifiers::NONE) => state.project()?.subprojects.select_prev(),
         (KeyCode::Char('l'), KeyModifiers::ALT) => {
-            state.project.subprojects.move_down().ok();
+            state.project()?.subprojects.move_down().ok();
         }
         (KeyCode::Char('h'), KeyModifiers::ALT) => {
-            state.project.subprojects.move_up().ok();
+            state.project()?.subprojects.move_up().ok();
         }
         (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
-            if let Some(subproject) = selected_subproject {
+            if let Some(subproject) = state.project()?.subproject() {
                 if let Some(task) = subproject.tasks.pop_selected() {
                     let target_subproject =
                         state.project.subprojects.next_item_mut().expect(
@@ -112,7 +110,7 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
             }
         }
         (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
-            if let Some(subproject) = selected_subproject {
+            if let Some(subproject) = state.project()?.subproject() {
                 if let Some(task) = subproject.tasks.pop_selected() {
                     let target_subproject =
                         state.project.subprojects.prev_item_mut().expect(
@@ -132,52 +130,38 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
             set_prompt(state, PromptRequest::AddTask, "New Task:");
         }
         (KeyCode::Char('d'), KeyModifiers::NONE) => {
-            if let Some(subproject) = selected_subproject {
-                subproject.tasks.pop_selected();
-            }
+            state.project()?.subproject()?.tasks.pop_selected();
         }
         (KeyCode::Char('r'), KeyModifiers::NONE) => {
-            if let Some(subproject) = selected_subproject {
-                if let Some(task) = subproject.tasks.get_item_mut(None) {
-                    let desc = task.desc.clone();
-                    set_prompt_extra(
-                        state,
-                        PromptRequest::RenameTask,
-                        "Rename Task:",
-                        &desc,
-                        false,
-                    );
-                }
+            if let Some(task) = state.project()?.subproject()?.task() {
+                let desc = task.desc.clone();
+                set_prompt_extra(
+                    state,
+                    PromptRequest::RenameTask,
+                    "Rename Task:",
+                    &desc,
+                    false,
+                );
             }
         }
         // Subproject navigation
         (KeyCode::Esc, KeyModifiers::NONE) => {
-            if let Some(subproject) = selected_subproject {
-                subproject.tasks.deselect();
-            }
+            state.project()?.subproject()?.tasks.deselect();
         }
         (KeyCode::Char('j'), KeyModifiers::NONE) => {
-            if let Some(subproject) = selected_subproject {
-                subproject.tasks.select_next();
-            }
+            state.project()?.subproject()?.tasks.select_next();
         }
         (KeyCode::Char('k'), KeyModifiers::NONE) => {
-            if let Some(subproject) = selected_subproject {
-                subproject.tasks.select_prev();
-            }
+            state.project()?.subproject()?.tasks.select_prev();
         }
         (KeyCode::Char('j'), KeyModifiers::CONTROL) => {
-            if let Some(subproject) = selected_subproject {
-                subproject.tasks.move_down().ok();
-            }
+            state.project()?.subproject()?.tasks.move_down().ok();
         }
         (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
-            if let Some(subproject) = selected_subproject {
-                subproject.tasks.move_up().ok();
-            }
+            state.project()?.subproject()?.tasks.move_up().ok();
         }
         (KeyCode::Char('\\'), KeyModifiers::NONE) => {
-            state.project.split_vertical = !state.project.split_vertical;
+            state.project()?.split_vertical = !state.project()?.split_vertical;
         }
         // File operations
         (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
@@ -204,14 +188,13 @@ fn handle_subproject_event(key: KeyEvent, state: &mut App) -> Option<String> {
 }
 
 fn handle_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
-    if let Some(pr) = state.project.prompt_request.clone() {
+    if let Some(request) = state.project.prompt_request.clone() {
         match state.project.prompt.handle_event(key) {
             PromptEvent::Cancelled => state.project.prompt_request = None,
             PromptEvent::AwaitingResult(_) => (),
             PromptEvent::Result(result_text) => {
                 clear_prompt(state);
-                let subproject = state.project.subprojects.get_item_mut(None);
-                match pr {
+                match request {
                     PromptRequest::SetProjectPassword => {
                         state.project.password = result_text;
                         return Some("Reset project password".to_owned());
@@ -227,33 +210,27 @@ fn handle_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
                         return Some(format!("Renamed project: {}", state.project.name));
                     }
                     PromptRequest::RenameSubProject => {
-                        if let Some(subproject) = subproject {
-                            subproject.name = result_text;
-                        }
+                        state.project()?.subproject()?.name = result_text;
                     }
                     PromptRequest::AddSubProject => {
-                        state.project.subprojects.insert_item(
-                            state.project.subprojects.next_index(),
-                            SubProject::new(&result_text),
-                            true,
-                        );
-                        bind_focus_size(state);
+                        if let Some(project) = state.project() {
+                            project.subprojects.insert_item(
+                                project.subprojects.next_index(),
+                                SubProject::new(&result_text),
+                                true,
+                            );
+                            bind_focus_size(state);
+                        }
                     }
                     PromptRequest::AddTask => {
-                        if let Some(subproject) = subproject {
-                            subproject.tasks.add_item(Task::new(&result_text));
-                        };
+                        state
+                            .project()?
+                            .subproject()?
+                            .tasks
+                            .add_item(Task::new(&result_text));
                     }
                     PromptRequest::RenameTask => {
-                        if let Some(subproject) = subproject {
-                            if let Some(task) = subproject.tasks.get_item(None) {
-                                let new_task = Task {
-                                    desc: result_text.clone(),
-                                    ..task.clone()
-                                };
-                                subproject.tasks.replace_selected(new_task);
-                            }
-                        }
+                        state.project()?.subproject()?.task()?.desc = result_text.clone();
                     }
                 };
                 state.project.prompt_request = None;
