@@ -2,6 +2,7 @@ use super::list::SelectionList;
 use crate::crypto::{decrypt, encrypt};
 use crate::ui::widgets::{files::FileListWidget, prompt::PromptWidget};
 use serde::{self, Deserialize, Serialize};
+use std::ops::Add;
 use std::{fmt, fs, path::PathBuf};
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
@@ -112,6 +113,21 @@ impl<'a> Default for Project<'a> {
             prompt_request: None,
             focused_width_percent: DEFAULT_WIDTH_PERCENT,
             split_vertical: false,
+        }
+    }
+}
+
+impl<'a> Add<Project<'a>> for Project<'a> {
+    type Output = Project<'a>;
+
+    fn add(self, rhs: Project<'a>) -> Self::Output {
+        Project {
+            name: self.name.clone(),
+            password: self.password.clone(),
+            subprojects: self.subprojects + rhs.subprojects,
+            split_vertical: self.split_vertical,
+            focused_width_percent: self.focused_width_percent,
+            ..Default::default()
         }
     }
 }
