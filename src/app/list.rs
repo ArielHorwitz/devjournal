@@ -163,16 +163,6 @@ impl<T> SelectionList<T> {
         }
     }
 
-    pub fn replace_selected(&mut self, new: T) -> Option<T> {
-        if let Some(index) = self.selection {
-            let element = self.items.remove(index);
-            self.items.insert(index, new);
-            Some(element)
-        } else {
-            None
-        }
-    }
-
     pub fn pop_selected(&mut self) -> Option<T> {
         match self.selection {
             None => None,
