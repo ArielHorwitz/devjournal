@@ -80,6 +80,14 @@ impl<T> SelectionList<T> {
         self.selection
     }
 
+    pub fn select(&mut self, index: usize) -> Result<(), String> {
+        if index >= self.items.len() {
+            return Err("index out of range".to_owned());
+        };
+        self.selection = Some(index);
+        Ok(())
+    }
+
     pub fn prev_index(&self) -> Option<usize> {
         if let Some(index) = self.selection {
             if index == 0 {
