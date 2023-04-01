@@ -1,4 +1,4 @@
-use crate::app::data::App;
+use crate::app::data::{App, Project};
 pub mod events;
 mod styles;
 pub mod widgets;
@@ -21,9 +21,17 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &App, debug: bool) {
         ])
         .split(frame.size());
     draw_tab_bar(frame, state, chunks[0]);
-    match debug {
-        false => draw_project(frame, state, chunks[1]),
-        true => draw_debug_tab(frame, state, chunks[1]),
+    if debug {
+        draw_debug_tab(frame, state, chunks[1]);
+    } else {
+        if let Some(project) = state.journal.projects.get_item(None) {
+            draw_project(frame, project, chunks[1]);
+        }
+        if state.file_request.is_some() {
+            state
+                .filelist
+                .draw(frame, center_rect(40, 20, chunks[1], 1));
+        }
     };
     draw_feedback_text(frame, state, chunks[2]);
 }
@@ -42,19 +50,22 @@ fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
             Constraint::Length(chunk.width.saturating_sub(30)),
         ])
         .split(inner);
-    let project_name = Paragraph::new(Span::styled(
-        format!("Project: {}", state.project.name),
-        styles::title(),
-    ));
-    frame.render_widget(project_name, chunks[1]);
-    let titles = vec!["Project", "Debug"]
+    frame.render_widget(
+        Paragraph::new(Span::styled(&state.journal.name, styles::title())),
+        chunks[1],
+    );
+    let titles = state
+        .journal
+        .projects
         .iter()
-        .map(|t| Spans::from(Span::styled(*t, styles::tab_dim())))
+        .map(|t| Spans::from(Span::styled(&t.name, styles::tab_dim())))
         .collect();
-    let tabs = Tabs::new(titles)
+    let mut tabs = Tabs::new(titles)
         .block(Block::default().borders(Borders::LEFT))
-        .highlight_style(styles::tab())
-        .select(state.tab_index);
+        .highlight_style(styles::tab_dim());
+    if let Some(selected) = state.journal.projects.selected() {
+        tabs = tabs.select(selected).highlight_style(styles::tab());
+    }
     frame.render_widget(tabs, chunks[2]);
 }
 
@@ -140,34 +151,32 @@ where
     frame.render_widget(table, chunks[0]);
 }
 
-fn draw_project<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
-    draw_subprojects(frame, state, rect);
-    if state.file_request.is_some() {
-        state.filelist.draw(frame, center_rect(35, 20, rect, 1));
-    } else if state.project.prompt_request.is_some() {
-        state.project.prompt.draw(frame, rect);
+fn draw_project<B: Backend>(frame: &mut Frame<B>, project: &Project, rect: Rect) {
+    draw_subprojects(frame, project, rect);
+    if project.prompt_request.is_some() {
+        project.prompt.draw(frame, rect);
     };
 }
 
-fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
-    let subproject_count = state.project.subprojects.items().len() as u16;
+fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, project: &Project, rect: Rect) {
+    let subproject_count = project.subprojects.items().len() as u16;
     let percent_unfocus = if subproject_count > 1 {
-        let remainder = 100. - state.project.focused_width_percent as f32;
+        let remainder = 100. - project.focused_width_percent as f32;
         (remainder / (subproject_count as f32 - 1.).floor()) as u16
     } else {
         100
     };
-    let subproject_index = state.project.subprojects.selected();
+    let subproject_index = project.subprojects.selected();
     let constraints: Vec<Constraint> = (0..subproject_count)
         .map(|i| {
             if subproject_index == Some(i as usize) {
-                Constraint::Percentage(state.project.focused_width_percent)
+                Constraint::Percentage(project.focused_width_percent)
             } else {
                 Constraint::Percentage(percent_unfocus)
             }
         })
         .collect();
-    let direction = match state.project.split_vertical {
+    let direction = match project.split_vertical {
         true => Direction::Vertical,
         false => Direction::Horizontal,
     };
@@ -175,11 +184,11 @@ fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, state: &App, rect: Rect) {
         .direction(direction)
         .constraints(constraints)
         .split(rect);
-    for (index, subproject) in state.project.subprojects.iter().enumerate() {
+    for (index, subproject) in project.subprojects.iter().enumerate() {
         let mut border_style = styles::border();
         let mut title_style = styles::title_dim();
         let mut focus = false;
-        if Some(index) == state.project.subprojects.selected() {
+        if Some(index) == project.subprojects.selected() {
             border_style = styles::border_highlighted();
             title_style = styles::title();
             focus = true;

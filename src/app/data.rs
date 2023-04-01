@@ -36,11 +36,13 @@ pub trait DataDeserialize<T> {
 
 #[derive(Clone)]
 pub enum PromptRequest {
-    SetProjectPassword,
+    SetPassword,
     GetLoadPassword(String),
+    RenameJournal,
+    AddProject,
     RenameProject,
-    RenameSubProject,
     AddSubProject,
+    RenameSubProject,
     AddTask,
     RenameTask,
 }
@@ -54,12 +56,11 @@ pub enum FileRequest {
 pub struct App<'a> {
     pub title: &'a str,
     pub datadir: PathBuf,
-    pub tab_index: usize,
     pub user_feedback_text: String,
     pub filelist: FileListWidget<'a>,
     pub file_request: Option<FileRequest>,
     pub filepath: PathBuf,
-    pub project: Project<'a>,
+    pub journal: Journal<'a>,
 }
 
 impl<'a> App<'a> {
@@ -67,17 +68,72 @@ impl<'a> App<'a> {
         App {
             title,
             datadir: datadir.clone(),
-            tab_index: 0,
             user_feedback_text: format!("Welcome to {title}."),
             filelist: FileListWidget::new(datadir.to_string_lossy().to_string().as_str()),
             file_request: None,
             filepath: datadir.join(DEFAULT_PROJECT_FILENAME),
-            project: Project::default(),
+            journal: Default::default(),
         }
     }
+}
 
+#[derive(Serialize, Deserialize)]
+pub struct Journal<'a> {
+    pub name: String,
+    pub password: String,
+    pub projects: SelectionList<Project<'a>>,
+}
+
+impl<'a> Journal<'a> {
     pub fn project(&mut self) -> Option<&mut Project<'a>> {
-        Some(&mut self.project)
+        self.projects.get_item_mut(None)
+    }
+}
+
+impl<'a> Default for Journal<'a> {
+    fn default() -> Journal<'a> {
+        let mut projects = SelectionList::from_vec(vec![Project::default()]);
+        projects.select_next();
+        Journal {
+            name: "New Journal".to_owned(),
+            password: "".to_owned(),
+            projects,
+        }
+    }
+}
+
+impl<'a> DataSerialize<Journal<'a>> for Journal<'a> {
+    fn serialize(journal: &Journal<'a>) -> Result<Vec<u8>, String> {
+        bincode::serialize(&journal).map_err(|e| format!("failed to serialize [{e}]"))
+    }
+}
+
+impl<'a> DataDeserialize<Journal<'a>> for Journal<'a> {
+    fn deserialize(encoded: Vec<u8>) -> Result<Journal<'a>, String> {
+        bincode::deserialize::<Journal>(encoded.as_slice())
+            .map_err(|e| format!("failed to deserialize [{e}]"))
+    }
+}
+
+impl<'a> From<Project<'a>> for Journal<'a> {
+    fn from(project: Project<'a>) -> Journal<'a> {
+        Journal {
+            name: project.name.clone(),
+            password: project.password.clone(),
+            projects: SelectionList::from_vec(vec![project]),
+        }
+    }
+}
+
+impl<'a> Add<Journal<'a>> for Journal<'a> {
+    type Output = Journal<'a>;
+
+    fn add(self, rhs: Journal<'a>) -> Self::Output {
+        Journal {
+            name: self.name,
+            password: self.password,
+            projects: self.projects + rhs.projects,
+        }
     }
 }
 

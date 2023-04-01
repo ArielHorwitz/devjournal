@@ -40,7 +40,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
             }
         };
         if last_tick.elapsed() >= tick_rate {
-            let title = format!("{} - {}", app_state.title, app_state.project.name);
+            let title = format!("{} - {}", app_state.title, app_state.journal.name);
             crossterm::queue!(stdout(), SetTitle(title))?;
             last_tick = Instant::now();
         }
