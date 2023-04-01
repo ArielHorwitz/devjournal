@@ -89,6 +89,19 @@ pub struct Project<'a> {
     pub split_vertical: bool,
 }
 
+impl<'a> Clone for Project<'a> {
+    fn clone(&self) -> Self {
+        Project {
+            name: self.name.clone(),
+            password: self.password.clone(),
+            subprojects: self.subprojects.clone(),
+            split_vertical: self.split_vertical,
+            focused_width_percent: self.focused_width_percent,
+            ..Project::default()
+        }
+    }
+}
+
 impl<'a> Default for Project<'a> {
     fn default() -> Project<'a> {
         Project {
@@ -116,7 +129,7 @@ impl<'a> DataDeserialize<Project<'a>> for Project<'a> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SubProject {
     pub name: String,
     pub tasks: SelectionList<Task>,
