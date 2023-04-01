@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, slice::Iter};
+use std::{fmt::Display, ops::Add, slice::Iter};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SelectionList<T> {
@@ -190,6 +190,20 @@ impl<T> SelectionList<T> {
 
     pub fn iter(&self) -> Iter<'_, T> {
         self.items.iter()
+    }
+}
+
+impl<T> Add<SelectionList<T>> for SelectionList<T>
+where
+    T: Clone,
+{
+    type Output = SelectionList<T>;
+
+    fn add(self, rhs: SelectionList<T>) -> Self::Output {
+        let mut items = self.items;
+        let mut rhs_items = rhs.items;
+        items.append(&mut rhs_items);
+        SelectionList::from_vec(items)
     }
 }
 
