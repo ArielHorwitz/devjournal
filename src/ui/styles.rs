@@ -78,3 +78,10 @@ pub fn tab() -> Style {
 pub fn tab_dim() -> Style {
     Style::default().fg(Color::DarkGray)
 }
+
+// Statuses
+pub fn warning() -> Style {
+    Style::default()
+        .bg(Color::Rgb(16, 32, 0))
+        .fg(Color::Rgb(255, 192, 32))
+}

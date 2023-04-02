@@ -53,8 +53,12 @@ fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
             Constraint::Length(chunk.width.saturating_sub(30)),
         ])
         .split(inner);
+    let (title_text, title_style) = match state.journal.password.is_empty() {
+        false => (state.journal.name.clone(), styles::title()),
+        true => (format!("*{}", state.journal.name), styles::warning()),
+    };
     frame.render_widget(
-        Paragraph::new(Span::styled(&state.journal.name, styles::title())),
+        Paragraph::new(Span::styled(title_text, title_style)),
         chunks[1],
     );
     let titles = state
