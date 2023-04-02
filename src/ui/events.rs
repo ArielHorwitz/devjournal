@@ -161,40 +161,8 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
                 .ok();
         }
         // Move
-        (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
-            if let Some(project) = state.journal.project() {
-                if let Some(subproject) = project.subproject() {
-                    if let Some(task) = subproject.tasks.pop_selected() {
-                        let target_subproject = project.subprojects.next_item_mut().expect(
-                            "next subproject should exist if at least one subproject exists",
-                        );
-                        target_subproject.tasks.insert_item(
-                            target_subproject.tasks.selected(),
-                            task,
-                            true,
-                        );
-                        project.subprojects.select_next();
-                    }
-                }
-            }
-        }
-        (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
-            if let Some(project) = state.journal.project() {
-                if let Some(subproject) = project.subproject() {
-                    if let Some(task) = subproject.tasks.pop_selected() {
-                        let target_subproject = project.subprojects.prev_item_mut().expect(
-                            "prev subproject should exist if at least one subproject exists",
-                        );
-                        target_subproject.tasks.insert_item(
-                            target_subproject.tasks.selected(),
-                            task,
-                            true,
-                        );
-                        project.subprojects.select_prev()
-                    }
-                }
-            }
-        }
+        (KeyCode::Char('l'), KeyModifiers::CONTROL) => move_task(state, false),
+        (KeyCode::Char('h'), KeyModifiers::CONTROL) => move_task(state, true),
         // UI
         (KeyCode::Char('='), KeyModifiers::NONE) => {
             state.journal.project()?.focused_width_percent += 5;
@@ -248,6 +216,28 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
         _ => (),
     };
     None
+}
+
+fn move_task(state: &mut App, to_prev: bool) {
+    if let Some(project) = state.journal.project() {
+        if let Some(subproject) = project.subproject() {
+            if let Some(task) = subproject.tasks.pop_selected() {
+                let target_subproject = match to_prev {
+                    true => project.subprojects.prev_item_mut(),
+                    false => project.subprojects.next_item_mut(),
+                };
+                let target_subproject = target_subproject
+                    .expect("cycling through at least one subproject should yield a subproject");
+                target_subproject
+                    .tasks
+                    .insert_item(target_subproject.tasks.selected(), task, true);
+                match to_prev {
+                    true => project.subprojects.select_prev(),
+                    false => project.subprojects.select_next(),
+                }
+            }
+        }
+    }
 }
 
 fn handle_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
