@@ -64,6 +64,31 @@ impl<T> SelectionList<T> {
         self.items.push(item);
     }
 
+    pub fn add_item(&mut self, item: T, select: bool) {
+        match self.selection {
+            Some(index) => match index >= self.len() - 1 {
+                true => {
+                    self.push_item(item);
+                    if select {
+                        self.selection = Some(self.len() - 1);
+                    };
+                }
+                false => {
+                    self.insert_item(Some(index + 1), item, false);
+                    if select {
+                        self.selection = Some(index + 1);
+                    }
+                }
+            },
+            None => {
+                self.push_item(item);
+                if select {
+                    self.selection = Some(self.len() - 1);
+                }
+            }
+        }
+    }
+
     pub fn insert_item(&mut self, index: Option<usize>, item: T, select: bool) {
         let index = index.unwrap_or(0);
         self.items.insert(index, item);

@@ -315,20 +315,17 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) -> Option<String>
                 state.journal.project()?.prompt_request = None;
                 match request {
                     JournalPrompt::AddProject => {
-                        state.journal.projects.insert_item(
-                            state.journal.projects.next_index(),
-                            Project::new(&result_text),
-                            true,
-                        );
+                        state
+                            .journal
+                            .projects
+                            .add_item(Project::new(&result_text), true);
                         bind_focus_size(state);
                     }
                     JournalPrompt::AddSubProject => {
                         if let Some(project) = state.journal.project() {
-                            project.subprojects.insert_item(
-                                project.subprojects.next_index(),
-                                SubProject::new(&result_text),
-                                true,
-                            );
+                            project
+                                .subprojects
+                                .add_item(SubProject::new(&result_text), true);
                             bind_focus_size(state);
                         }
                     }
@@ -338,7 +335,7 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) -> Option<String>
                             .project()?
                             .subproject()?
                             .tasks
-                            .push_item(Task::new(&result_text));
+                            .add_item(Task::new(&result_text), true);
                     }
                     JournalPrompt::RenameJournal => {
                         state.journal.name = result_text;
