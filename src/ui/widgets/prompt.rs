@@ -109,6 +109,12 @@ impl<'a> PromptWidget<'a> {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.prompt_text = "".to_owned();
+        self.set_text("");
+        self.password = false;
+    }
+
     pub fn draw<B: Backend>(&self, f: &mut Frame<B>, chunk: Rect) {
         let width = self
             .max_width

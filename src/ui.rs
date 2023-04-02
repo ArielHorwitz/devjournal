@@ -33,6 +33,9 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &App, debug: bool) {
                 .draw(frame, center_rect(40, 20, chunks[1], 1));
         }
     };
+    if state.prompt_request.is_some() {
+        state.prompt.draw(frame, chunks[1]);
+    }
     draw_feedback_text(frame, state, chunks[2]);
 }
 

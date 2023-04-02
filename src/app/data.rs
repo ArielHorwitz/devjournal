@@ -6,7 +6,6 @@ use std::ops::Add;
 use std::{fmt, fs, path::PathBuf};
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
-pub const DEFAULT_PROJECT_FILENAME: &str = "new_project";
 
 pub fn load_decrypt<T>(filepath: &PathBuf, key: &str) -> Result<T, String>
 where
@@ -35,9 +34,8 @@ pub trait DataDeserialize<T> {
 }
 
 #[derive(Clone)]
-pub enum PromptRequest {
+pub enum JournalPrompt {
     SetPassword,
-    GetLoadPassword(String),
     RenameJournal,
     AddProject,
     RenameProject,
@@ -51,6 +49,14 @@ pub enum PromptRequest {
 pub enum FileRequest {
     Save,
     Load,
+    LoadMerge,
+}
+
+#[derive(Clone)]
+pub enum AppPrompt {
+    NewJournal,
+    LoadFile(String),
+    MergeFile(String),
 }
 
 pub struct App<'a> {
@@ -59,6 +65,8 @@ pub struct App<'a> {
     pub user_feedback_text: String,
     pub filelist: FileListWidget<'a>,
     pub file_request: Option<FileRequest>,
+    pub prompt: PromptWidget<'a>,
+    pub prompt_request: Option<AppPrompt>,
     pub filepath: PathBuf,
     pub journal: Journal<'a>,
 }
@@ -71,13 +79,15 @@ impl<'a> App<'a> {
             user_feedback_text: format!("Welcome to {title}."),
             filelist: FileListWidget::new(datadir.to_string_lossy().to_string().as_str()),
             file_request: None,
-            filepath: datadir.join(DEFAULT_PROJECT_FILENAME),
+            prompt: PromptWidget::default(),
+            prompt_request: None,
+            filepath: datadir.join("new_project"),
             journal: Default::default(),
         }
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Journal<'a> {
     pub name: String,
     pub password: String,
@@ -145,7 +155,7 @@ pub struct Project<'a> {
     #[serde(skip)]
     pub prompt: PromptWidget<'a>,
     #[serde(skip)]
-    pub prompt_request: Option<PromptRequest>,
+    pub prompt_request: Option<JournalPrompt>,
     pub focused_width_percent: u16,
     pub split_vertical: bool,
 }
