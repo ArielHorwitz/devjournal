@@ -286,7 +286,7 @@ fn handle_app_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
             state.prompt_request = None;
             match request {
                 AppPrompt::NewJournal => {
-                    state.journal = Default::default();
+                    state.journal = Journal::new(&result_text);
                     state.filepath = state.datadir.join(result_text);
                     save_state(state, None).ok()?;
                     reset_ui(state);
@@ -317,10 +317,7 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) -> Option<String>
                     JournalPrompt::AddProject => {
                         state.journal.projects.insert_item(
                             state.journal.projects.next_index(),
-                            Project {
-                                name: result_text,
-                                ..Default::default()
-                            },
+                            Project::new(&result_text),
                             true,
                         );
                         bind_focus_size(state);

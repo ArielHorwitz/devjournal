@@ -95,6 +95,13 @@ pub struct Journal<'a> {
 }
 
 impl<'a> Journal<'a> {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_owned(),
+            ..Default::default()
+        }
+    }
+
     pub fn project(&mut self) -> Option<&mut Project<'a>> {
         self.projects.get_item_mut(None)
     }
@@ -161,6 +168,13 @@ pub struct Project<'a> {
 }
 
 impl<'a> Project<'a> {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_owned(),
+            ..Default::default()
+        }
+    }
+
     pub fn subproject(&mut self) -> Option<&mut SubProject> {
         self.subprojects.get_item_mut(None)
     }
