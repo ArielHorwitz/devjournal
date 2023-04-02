@@ -33,7 +33,7 @@ pub fn handle_event(key: KeyEvent, state: &mut App) {
 fn handle_global_event(key: KeyEvent, state: &mut App) -> Option<String> {
     match (key.code, key.modifiers) {
         // Global operations
-        (KeyCode::Char('o'), KeyModifiers::ALT) => return open_datadir(state),
+        (KeyCode::Char('o'), KeyModifiers::ALT) => open_datadir(state),
         _ => None,
     }
 }
@@ -117,6 +117,12 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
         }
         (KeyCode::Tab, KeyModifiers::NONE) => state.journal.projects.select_next(),
         (KeyCode::BackTab, _) => state.journal.projects.select_prev(),
+        (KeyCode::PageDown, KeyModifiers::CONTROL) => {
+            state.journal.projects.select_next();
+        }
+        (KeyCode::PageUp, KeyModifiers::CONTROL) => {
+            state.journal.projects.select_prev();
+        }
         (KeyCode::Char('l'), KeyModifiers::NONE) => {
             state.journal.project()?.subprojects.select_next()
         }
@@ -130,10 +136,10 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
             state.journal.project()?.subproject()?.tasks.select_prev();
         }
         // Shift
-        (KeyCode::PageDown, KeyModifiers::CONTROL) => {
+        (KeyCode::PageDown, KeyModifiers::ALT) => {
             state.journal.projects.shift_next().ok();
         }
-        (KeyCode::PageUp, KeyModifiers::CONTROL) => {
+        (KeyCode::PageUp, KeyModifiers::ALT) => {
             state.journal.projects.shift_prev().ok();
         }
         (KeyCode::Char('L'), KeyModifiers::SHIFT) => {
