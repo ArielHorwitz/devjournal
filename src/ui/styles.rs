@@ -4,7 +4,7 @@ use tui::style::{Color, Modifier, Style};
 pub fn title() -> Style {
     Style::default()
         .fg(Color::Rgb(48, 255, 48))
-        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+        .add_modifier(Modifier::BOLD)
 }
 
 pub fn title_dim() -> Style {
