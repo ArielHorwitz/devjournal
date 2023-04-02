@@ -72,7 +72,7 @@ impl<'a> FileListWidget<'a> {
         });
         self.filelist.clear_items();
         for file in entries {
-            self.filelist.add_item(
+            self.filelist.push_item(
                 file.file_name()
                     .expect("cannot get file name")
                     .to_string_lossy()
@@ -94,7 +94,7 @@ impl<'a> FileListWidget<'a> {
                 Constraint::Length(3),
             ])
             .split(chunk);
-        let file_list = ListWidget::new(self.filelist.as_strings(), self.filelist.selected())
+        let file_list = ListWidget::new(self.filelist.as_strings(), self.filelist.selection())
             .block(
                 Block::default()
                     .title(Span::styled(&self.title, self.style_title))

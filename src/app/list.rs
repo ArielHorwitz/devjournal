@@ -16,27 +16,30 @@ impl<T> Default for SelectionList<T> {
     }
 }
 
-impl<T> SelectionList<T> {
-    pub fn from_vec(vec: Vec<T>) -> SelectionList<T> {
+impl<T> From<Vec<T>> for SelectionList<T> {
+    fn from(vec: Vec<T>) -> Self {
         SelectionList {
             items: vec,
             selection: None,
         }
     }
+}
 
-    pub fn items(&self) -> &Vec<T> {
-        &self.items
+impl<T> SelectionList<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
+        self.items.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.items.len()
     }
 
     pub fn get_item(&self, index: Option<usize>) -> Option<&T> {
         match index {
-            Some(i) => {
-                if i < self.items.len() {
-                    Some(&self.items[i])
-                } else {
-                    None
-                }
-            }
+            Some(i) => match i < self.items.len() {
+                true => Some(&self.items[i]),
+                false => None,
+            },
             None => match self.selection {
                 Some(i) => Some(&self.items[i]),
                 None => None,
@@ -46,13 +49,10 @@ impl<T> SelectionList<T> {
 
     pub fn get_item_mut(&mut self, index: Option<usize>) -> Option<&mut T> {
         match index {
-            Some(i) => {
-                if i < self.items.len() {
-                    Some(&mut self.items[i])
-                } else {
-                    None
-                }
-            }
+            Some(i) => match i < self.items.len() {
+                true => Some(&mut self.items[i]),
+                false => None,
+            },
             None => match self.selection {
                 Some(i) => Some(&mut self.items[i]),
                 None => None,
@@ -60,7 +60,7 @@ impl<T> SelectionList<T> {
         }
     }
 
-    pub fn add_item(&mut self, item: T) {
+    pub fn push_item(&mut self, item: T) {
         self.items.push(item);
     }
 
@@ -76,7 +76,7 @@ impl<T> SelectionList<T> {
         self.items = Vec::default();
     }
 
-    pub fn selected(&self) -> Option<usize> {
+    pub fn selection(&self) -> Option<usize> {
         self.selection
     }
 
@@ -88,44 +88,34 @@ impl<T> SelectionList<T> {
         Ok(())
     }
 
-    pub fn prev_index(&self) -> Option<usize> {
-        if let Some(index) = self.selection {
-            if index == 0 {
-                Some(self.items.len() - 1)
-            } else {
-                Some(index - 1)
-            }
-        } else if !self.items.is_empty() {
-            Some(self.items.len() - 1)
-        } else {
-            None
-        }
+    pub fn deselect(&mut self) {
+        self.selection = None;
     }
 
     pub fn next_index(&self) -> Option<usize> {
-        if let Some(index) = self.selection {
-            if self.items.len() == index + 1 {
-                Some(0)
-            } else {
-                Some(index + 1)
-            }
-        } else if !self.items.is_empty() {
-            Some(0)
-        } else {
-            None
+        match self.selection {
+            None => match self.items.is_empty() {
+                true => None,
+                false => Some(0),
+            },
+            Some(index) => match index + 1 >= self.len() {
+                true => Some(0),
+                false => Some(index + 1),
+            },
         }
     }
 
-    pub fn next_item_mut(&mut self) -> Option<&mut T> {
-        self.get_item_mut(self.next_index())
-    }
-
-    pub fn prev_item_mut(&mut self) -> Option<&mut T> {
-        self.get_item_mut(self.prev_index())
-    }
-
-    pub fn deselect(&mut self) {
-        self.selection = None;
+    pub fn prev_index(&self) -> Option<usize> {
+        match self.selection {
+            None => match self.items.is_empty() {
+                true => None,
+                false => Some(self.len() - 1),
+            },
+            Some(index) => match index == 0 {
+                true => Some(self.len() - 1),
+                false => Some(index - 1),
+            },
+        }
     }
 
     pub fn select_next(&mut self) {
@@ -185,10 +175,6 @@ impl<T> SelectionList<T> {
             }
         }
     }
-
-    pub fn iter(&self) -> Iter<'_, T> {
-        self.items.iter()
-    }
 }
 
 impl<T> Add<SelectionList<T>> for SelectionList<T>
@@ -201,7 +187,7 @@ where
         let mut items = self.items;
         let mut rhs_items = rhs.items;
         items.append(&mut rhs_items);
-        SelectionList::from_vec(items)
+        SelectionList::from(items)
     }
 }
 

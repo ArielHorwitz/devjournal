@@ -247,14 +247,20 @@ fn move_task(state: &mut App, to_prev: bool) {
         if let Some(subproject) = project.subproject() {
             if let Some(task) = subproject.tasks.pop_selected() {
                 let target_subproject = match to_prev {
-                    true => project.subprojects.prev_item_mut(),
-                    false => project.subprojects.next_item_mut(),
+                    true => project
+                        .subprojects
+                        .get_item_mut(project.subprojects.prev_index()),
+                    false => project
+                        .subprojects
+                        .get_item_mut(project.subprojects.next_index()),
                 };
                 let target_subproject = target_subproject
                     .expect("cycling through at least one subproject should yield a subproject");
-                target_subproject
-                    .tasks
-                    .insert_item(target_subproject.tasks.selected(), task, true);
+                target_subproject.tasks.insert_item(
+                    target_subproject.tasks.selection(),
+                    task,
+                    true,
+                );
                 match to_prev {
                     true => project.subprojects.select_prev(),
                     false => project.subprojects.select_next(),
@@ -308,14 +314,6 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) -> Option<String>
                 state.journal.project()?.prompt.clear();
                 state.journal.project()?.prompt_request = None;
                 match request {
-                    JournalPrompt::SetPassword => {
-                        state.journal.password = result_text;
-                        return Some("Reset journal password".to_owned());
-                    }
-                    JournalPrompt::RenameJournal => {
-                        state.journal.name = result_text;
-                        return Some(format!("Renamed journal: {}", state.journal.name));
-                    }
                     JournalPrompt::AddProject => {
                         state.journal.projects.insert_item(
                             state.journal.projects.next_index(),
@@ -326,15 +324,6 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) -> Option<String>
                             true,
                         );
                         bind_focus_size(state);
-                    }
-                    JournalPrompt::RenameProject => {
-                        if let Some(project) = state.journal.project() {
-                            project.name = result_text;
-                            return Some(format!("Renamed project: {}", project.name));
-                        }
-                    }
-                    JournalPrompt::RenameSubProject => {
-                        state.journal.project()?.subproject()?.name = result_text;
                     }
                     JournalPrompt::AddSubProject => {
                         if let Some(project) = state.journal.project() {
@@ -352,10 +341,27 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) -> Option<String>
                             .project()?
                             .subproject()?
                             .tasks
-                            .add_item(Task::new(&result_text));
+                            .push_item(Task::new(&result_text));
+                    }
+                    JournalPrompt::RenameJournal => {
+                        state.journal.name = result_text;
+                        return Some(format!("Renamed journal: {}", state.journal.name));
+                    }
+                    JournalPrompt::RenameProject => {
+                        if let Some(project) = state.journal.project() {
+                            project.name = result_text;
+                            return Some(format!("Renamed project: {}", project.name));
+                        }
+                    }
+                    JournalPrompt::RenameSubProject => {
+                        state.journal.project()?.subproject()?.name = result_text;
                     }
                     JournalPrompt::RenameTask => {
                         state.journal.project()?.subproject()?.task()?.desc = result_text;
+                    }
+                    JournalPrompt::SetPassword => {
+                        state.journal.password = result_text;
+                        return Some("Reset journal password".to_owned());
                     }
                 };
                 state.journal.project()?.prompt_request = None;
@@ -438,7 +444,7 @@ fn reset_ui(state: &mut App) {
 
 fn bind_focus_size(state: &mut App) {
     if let Some(project) = state.journal.project() {
-        let min_width = (100. / project.subprojects.items().len() as f32).max(5.) as u16;
+        let min_width = (100. / project.subprojects.len() as f32).max(5.) as u16;
         project.focused_width_percent = project.focused_width_percent.min(95).max(min_width);
     }
 }

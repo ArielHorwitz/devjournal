@@ -102,7 +102,7 @@ impl<'a> Journal<'a> {
 
 impl<'a> Default for Journal<'a> {
     fn default() -> Journal<'a> {
-        let mut projects = SelectionList::from_vec(vec![Project::default()]);
+        let mut projects = SelectionList::from(vec![Project::default()]);
         projects.select_next();
         Journal {
             name: "New Journal".to_owned(),
@@ -130,7 +130,7 @@ impl<'a> From<Project<'a>> for Journal<'a> {
         Journal {
             name: project.name.clone(),
             password: project.password.clone(),
-            projects: SelectionList::from_vec(vec![project]),
+            projects: SelectionList::from(vec![project]),
         }
     }
 }
@@ -184,7 +184,7 @@ impl<'a> Default for Project<'a> {
         Project {
             name: "New Project".to_owned(),
             password: "".to_owned(),
-            subprojects: SelectionList::from_vec(vec![SubProject::default()]),
+            subprojects: SelectionList::from(vec![SubProject::default()]),
             prompt: PromptWidget::default().width_hint(0.7),
             prompt_request: None,
             focused_width_percent: DEFAULT_WIDTH_PERCENT,

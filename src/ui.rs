@@ -70,7 +70,7 @@ fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
     let mut tabs = Tabs::new(titles)
         .block(Block::default().borders(Borders::LEFT))
         .highlight_style(styles::tab_dim());
-    if let Some(selected) = state.journal.projects.selected() {
+    if let Some(selected) = state.journal.projects.selection() {
         tabs = tabs.select(selected).highlight_style(styles::tab());
     }
     frame.render_widget(tabs, chunks[2]);
@@ -166,14 +166,14 @@ fn draw_project<B: Backend>(frame: &mut Frame<B>, project: &Project, rect: Rect)
 }
 
 fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, project: &Project, rect: Rect) {
-    let subproject_count = project.subprojects.items().len() as u16;
+    let subproject_count = project.subprojects.len() as u16;
     let percent_unfocus = if subproject_count > 1 {
         let remainder = 100. - project.focused_width_percent as f32;
         (remainder / (subproject_count as f32 - 1.).floor()) as u16
     } else {
         100
     };
-    let subproject_index = project.subprojects.selected();
+    let subproject_index = project.subprojects.selection();
     let constraints: Vec<Constraint> = (0..subproject_count)
         .map(|i| {
             if subproject_index == Some(i as usize) {
@@ -195,12 +195,12 @@ fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, project: &Project, rect: R
         let mut border_style = styles::border();
         let mut title_style = styles::title_dim();
         let mut focus = false;
-        if Some(index) == project.subprojects.selected() {
+        if Some(index) == project.subprojects.selection() {
             border_style = styles::border_highlighted();
             title_style = styles::title();
             focus = true;
         }
-        let widget = ListWidget::new(subproject.tasks.as_strings(), subproject.tasks.selected())
+        let widget = ListWidget::new(subproject.tasks.as_strings(), subproject.tasks.selection())
             .block(
                 Block::default()
                     .title(Span::styled(&subproject.name, title_style))
