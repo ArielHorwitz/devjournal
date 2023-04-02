@@ -27,7 +27,11 @@ pub fn encrypt(plaintext: &Vec<u8>, key: &str) -> Result<Vec<u8>, String> {
 
 pub fn decrypt(ciphertext: &Vec<u8>, key: &str) -> Result<Vec<u8>, String> {
     let cipher = get_cipher(key)?;
-    let (ciphertext, nonce_data) = ciphertext.split_at(ciphertext.len() - NONCE_SIZE);
+    let split_at = ciphertext.len().saturating_sub(NONCE_SIZE);
+    (split_at > 0)
+        .then_some(())
+        .ok_or("file too small".to_owned())?;
+    let (ciphertext, nonce_data) = ciphertext.split_at(split_at);
     let plaintext = cipher
         .decrypt(Nonce::from_slice(nonce_data), ciphertext)
         .map_err(|e| format!("Failed to decrypt [{e}]"))?;
