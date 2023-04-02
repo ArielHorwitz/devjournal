@@ -136,23 +136,7 @@ impl<T> SelectionList<T> {
         self.selection = self.prev_index()
     }
 
-    pub fn move_up(&mut self) -> Result<(), String> {
-        if let Some(selected) = self.selection {
-            if selected > 0 {
-                self.items.swap(selected, selected - 1);
-                self.selection = Some(selected - 1);
-            } else {
-                let element = self.items.remove(selected);
-                self.items.push(element);
-                self.selection = Some(self.items.len() - 1);
-            }
-            Ok(())
-        } else {
-            Err("no item selected".to_owned())
-        }
-    }
-
-    pub fn move_down(&mut self) -> Result<(), String> {
+    pub fn shift_next(&mut self) -> Result<(), String> {
         if let Some(selected) = self.selection {
             if selected < self.items.len() - 1 {
                 self.items.swap(selected, selected + 1);
@@ -164,6 +148,22 @@ impl<T> SelectionList<T> {
                     .ok_or("selection is Some, should have at least one item")?;
                 self.items.insert(0, element);
                 self.selection = Some(0);
+            }
+            Ok(())
+        } else {
+            Err("no item selected".to_owned())
+        }
+    }
+
+    pub fn shift_prev(&mut self) -> Result<(), String> {
+        if let Some(selected) = self.selection {
+            if selected > 0 {
+                self.items.swap(selected, selected - 1);
+                self.selection = Some(selected - 1);
+            } else {
+                let element = self.items.remove(selected);
+                self.items.push(element);
+                self.selection = Some(self.items.len() - 1);
             }
             Ok(())
         } else {

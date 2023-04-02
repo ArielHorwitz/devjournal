@@ -131,16 +131,16 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
         }
         // Shift
         (KeyCode::PageDown, KeyModifiers::CONTROL) => {
-            state.journal.projects.move_down().ok();
+            state.journal.projects.shift_next().ok();
         }
         (KeyCode::PageUp, KeyModifiers::CONTROL) => {
-            state.journal.projects.move_up().ok();
+            state.journal.projects.shift_prev().ok();
         }
         (KeyCode::Char('L'), KeyModifiers::SHIFT) => {
-            state.journal.project()?.subprojects.move_down().ok();
+            state.journal.project()?.subprojects.shift_next().ok();
         }
         (KeyCode::Char('H'), KeyModifiers::SHIFT) => {
-            state.journal.project()?.subprojects.move_up().ok();
+            state.journal.project()?.subprojects.shift_prev().ok();
         }
         (KeyCode::Char('j'), KeyModifiers::CONTROL) => {
             state
@@ -148,11 +148,17 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
                 .project()?
                 .subproject()?
                 .tasks
-                .move_down()
+                .shift_next()
                 .ok();
         }
         (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
-            state.journal.project()?.subproject()?.tasks.move_up().ok();
+            state
+                .journal
+                .project()?
+                .subproject()?
+                .tasks
+                .shift_prev()
+                .ok();
         }
         // Move
         (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
