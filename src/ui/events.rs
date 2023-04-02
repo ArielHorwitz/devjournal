@@ -355,7 +355,7 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) -> Option<String>
                     }
                     JournalPrompt::SetPassword => {
                         state.journal.password = result_text;
-                        return Some("Reset journal password".to_owned());
+                        return Some("Set journal password".to_owned());
                     }
                 };
                 state.journal.project()?.prompt_request = None;

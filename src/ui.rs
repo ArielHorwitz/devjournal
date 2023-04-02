@@ -88,11 +88,7 @@ fn draw_feedback_text<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect
         .split(inner);
     frame.render_widget(Paragraph::new(state.user_feedback_text.clone()), chunks[0]);
     let text = Span::styled(
-        format!(
-            "( terminal: {}×{} )",
-            frame.size().width,
-            frame.size().height
-        ),
+        format!("{}×{} ", frame.size().width, frame.size().height),
         styles::text_dim(),
     );
     let paragraph = Paragraph::new(text).alignment(tui::layout::Alignment::Right);
