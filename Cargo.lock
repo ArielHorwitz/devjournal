@@ -135,7 +135,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "devboard"
+name = "devjournal"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
