@@ -388,7 +388,7 @@ fn bind_focus_size(state: &mut App) {
 
 fn open_datadir(state: &App) -> Option<String> {
     if let Err(e) = Command::new("xdg-open").arg(&state.datadir).spawn() {
-        return Some(format!("failed to open {:?} [{e}]", &state.datadir,));
+        return Some(format!("failed to open {:?} [{e}]", &state.datadir));
     }
     None
 }
