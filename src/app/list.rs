@@ -101,6 +101,10 @@ impl<T> SelectionList<T> {
         self.items = Vec::default();
     }
 
+    pub fn selected(&self) -> Option<&T> {
+        self.get_item(None)
+    }
+
     pub fn selection(&self) -> Option<usize> {
         self.selection
     }

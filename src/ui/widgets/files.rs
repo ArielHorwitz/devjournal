@@ -157,7 +157,7 @@ impl<'a> FileListWidget<'a> {
                 }
             }
             (KeyCode::Enter, KeyModifiers::NONE) => {
-                if let Some(filename) = self.filelist.get_item(None) {
+                if let Some(filename) = self.filelist.selected() {
                     return FileListResult::Result(filename.clone());
                 }
             }

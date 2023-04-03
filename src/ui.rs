@@ -24,7 +24,7 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &App, debug: bool) {
     if debug {
         draw_debug_tab(frame, state, chunks[1]);
     } else {
-        if let Some(project) = state.journal.projects.get_item(None) {
+        if let Some(project) = state.journal.projects.selected() {
             draw_project(frame, project, chunks[1]);
         }
         if state.file_request.is_some() {
