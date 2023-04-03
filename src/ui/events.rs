@@ -196,8 +196,8 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
             state.journal.project()?.split_vertical = !state.journal.project()?.split_vertical;
         }
         // File
-        (KeyCode::Char('p'), KeyModifiers::ALT) => {
-            let name = state.journal.project()?.name.clone();
+        (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
+            let name = state.journal.name.clone();
             set_project_prompt(
                 state,
                 JournalPrompt::SetPassword,
@@ -355,7 +355,7 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) -> Option<String>
                     }
                     JournalPrompt::SetPassword => {
                         state.journal.password = result_text;
-                        return Some("Set journal password".to_owned());
+                        return Some("Set encryption password".to_owned());
                     }
                 };
                 state.journal.project()?.prompt_request = None;
