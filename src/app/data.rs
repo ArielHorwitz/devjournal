@@ -2,20 +2,97 @@ use super::list::SelectionList;
 use crate::crypto::{decrypt, encrypt};
 use crate::ui::widgets::{files::FileListWidget, prompt::PromptWidget};
 use serde::{self, Deserialize, Serialize};
+use std::fmt::Display;
 use std::ops::Add;
 use std::{fmt, fs, path::PathBuf};
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
 
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug)]
+pub struct Error {
+    message: String,
+    cause: Option<Box<Error>>,
+}
+
+impl std::error::Error for Error {}
+
+impl Error {
+    pub fn from_cause(message: &str, cause: Error) -> Self {
+        Self {
+            message: message.to_owned(),
+            cause: Some(Box::new(cause)),
+        }
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.cause {
+            None => write!(f, "{}", &self.message),
+            Some(cause) => write!(f, "{} [cause: ({})]", &self.message, cause),
+        }
+    }
+}
+
+impl From<String> for Error {
+    fn from(value: String) -> Self {
+        Self {
+            message: value,
+            cause: None,
+        }
+    }
+}
+
+impl From<&str> for Error {
+    fn from(value: &str) -> Self {
+        Self {
+            message: value.to_owned(),
+            cause: None,
+        }
+    }
+}
+
+impl From<Error> for String {
+    fn from(value: Error) -> Self {
+        value.message
+    }
+}
+
+impl<T> From<Error> for Result<T> {
+    fn from(value: Error) -> Result<T> {
+        Err(value)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        Self {
+            message: value.to_string(),
+            cause: Some(Box::new(Error::from(value.to_string()))),
+        }
+    }
+}
+
+impl From<Box<bincode::ErrorKind>> for Error {
+    fn from(value: Box<bincode::ErrorKind>) -> Self {
+        Self {
+            message: value.to_string(),
+            cause: Some(Box::new(Error::from(value.to_string()))),
+        }
+    }
+}
+
 pub trait DataSerialize<T>
 where
     Self: Serialize,
 {
-    fn save_encrypt(&self, filepath: &PathBuf, key: &str) -> Result<(), String> {
-        let encoded =
-            bincode::serialize(&self).map_err(|e| format!("failed to serialize [{e}]"))?;
+    fn save_encrypt(&self, filepath: &PathBuf, key: &str) -> Result<()> {
+        let encoded = bincode::serialize(&self)?;
         let encrypted = encrypt(&encoded, key)?;
-        fs::write(filepath, encrypted).map_err(|e| format!("failed to write file [{e}]"))
+        fs::write(filepath, encrypted)?;
+        Ok(())
     }
 }
 
@@ -23,11 +100,11 @@ pub trait DataDeserialize<T>
 where
     T: for<'a> Deserialize<'a>,
 {
-    fn load_decrypt(filepath: &PathBuf, key: &str) -> Result<T, String> {
-        let encrypted = fs::read(filepath).map_err(|e| format!("failed to read file [{e}]"))?;
+    fn load_decrypt(filepath: &PathBuf, key: &str) -> Result<T> {
+        let encrypted = fs::read(filepath)?;
         let decrypted = decrypt(&encrypted, key)?;
-        bincode::deserialize::<T>(decrypted.as_slice())
-            .map_err(|e| format!("failed to deserialize [{e}]"))
+        let decoded = bincode::deserialize::<T>(decrypted.as_slice())?;
+        Ok(decoded)
     }
 }
 
