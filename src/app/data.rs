@@ -108,7 +108,7 @@ impl<'a> Journal<'a> {
 }
 
 impl<'a> Default for Journal<'a> {
-    fn default() -> Journal<'a> {
+    fn default() -> Self {
         let mut projects = SelectionList::from(vec![Project::default()]);
         projects.select_next();
         Journal {
@@ -120,21 +120,21 @@ impl<'a> Default for Journal<'a> {
 }
 
 impl<'a> DataSerialize<Journal<'a>> for Journal<'a> {
-    fn serialize(journal: &Journal<'a>) -> Result<Vec<u8>, String> {
+    fn serialize(journal: &Self) -> Result<Vec<u8>, String> {
         bincode::serialize(&journal).map_err(|e| format!("failed to serialize [{e}]"))
     }
 }
 
 impl<'a> DataDeserialize<Journal<'a>> for Journal<'a> {
-    fn deserialize(encoded: Vec<u8>) -> Result<Journal<'a>, String> {
-        bincode::deserialize::<Journal>(encoded.as_slice())
+    fn deserialize(encoded: Vec<u8>) -> Result<Self, String> {
+        bincode::deserialize::<Self>(encoded.as_slice())
             .map_err(|e| format!("failed to deserialize [{e}]"))
     }
 }
 
 impl<'a> From<Project<'a>> for Journal<'a> {
-    fn from(project: Project<'a>) -> Journal<'a> {
-        Journal {
+    fn from(project: Project<'a>) -> Self {
+        Self {
             name: project.name.clone(),
             password: project.password.clone(),
             projects: SelectionList::from(vec![project]),
@@ -143,10 +143,10 @@ impl<'a> From<Project<'a>> for Journal<'a> {
 }
 
 impl<'a> Add<Journal<'a>> for Journal<'a> {
-    type Output = Journal<'a>;
+    type Output = Self;
 
-    fn add(self, rhs: Journal<'a>) -> Self::Output {
-        Journal {
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
             name: self.name,
             password: self.password,
             projects: self.projects + rhs.projects,
@@ -182,20 +182,20 @@ impl<'a> Project<'a> {
 
 impl<'a> Clone for Project<'a> {
     fn clone(&self) -> Self {
-        Project {
+        Self {
             name: self.name.clone(),
             password: self.password.clone(),
             subprojects: self.subprojects.clone(),
             split_vertical: self.split_vertical,
             focused_width_percent: self.focused_width_percent,
-            ..Project::default()
+            ..Default::default()
         }
     }
 }
 
 impl<'a> Default for Project<'a> {
-    fn default() -> Project<'a> {
-        Project {
+    fn default() -> Self {
+        Self {
             name: "New Project".to_owned(),
             password: "".to_owned(),
             subprojects: SelectionList::from(vec![SubProject::default()]),
@@ -208,10 +208,10 @@ impl<'a> Default for Project<'a> {
 }
 
 impl<'a> Add<Project<'a>> for Project<'a> {
-    type Output = Project<'a>;
+    type Output = Self;
 
-    fn add(self, rhs: Project<'a>) -> Self::Output {
-        Project {
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
             name: self.name.clone(),
             password: self.password.clone(),
             subprojects: self.subprojects + rhs.subprojects,
@@ -242,8 +242,8 @@ pub struct SubProject {
 }
 
 impl Default for SubProject {
-    fn default() -> SubProject {
-        SubProject {
+    fn default() -> Self {
+        Self {
             name: "Tasks".to_owned(),
             tasks: SelectionList::default(),
         }
@@ -251,8 +251,8 @@ impl Default for SubProject {
 }
 
 impl SubProject {
-    pub fn new(name: &str) -> SubProject {
-        SubProject {
+    pub fn new(name: &str) -> Self {
+        Self {
             name: name.to_owned(),
             tasks: SelectionList::default(),
         }
@@ -271,8 +271,8 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new(desc: &str) -> Task {
-        Task {
+    pub fn new(desc: &str) -> Self {
+        Self {
             desc: desc.to_owned(),
             created_at: "2020-02-02 12:00:00".to_owned(),
             completed_at: None,
