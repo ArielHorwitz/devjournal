@@ -1,3 +1,4 @@
+use crate::app::data::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, ops::Add, slice::Iter};
 
@@ -109,9 +110,9 @@ impl<T> SelectionList<T> {
         self.selection
     }
 
-    pub fn select(&mut self, index: usize) -> Result<(), String> {
+    pub fn select(&mut self, index: usize) -> Result<()> {
         if index >= self.items.len() {
-            return Err("index out of range".to_owned());
+            return Err(Error::from("index out of range"));
         };
         self.selection = Some(index);
         Ok(())
@@ -155,38 +156,41 @@ impl<T> SelectionList<T> {
         self.selection = self.prev_index()
     }
 
-    pub fn shift_next(&mut self) -> Result<(), String> {
+    pub fn shift_next(&mut self) -> Result<usize> {
         if let Some(selected) = self.selection {
             if selected < self.items.len() - 1 {
-                self.items.swap(selected, selected + 1);
-                self.selection = Some(selected + 1);
+                let new_index = selected + 1;
+                self.items.swap(selected, new_index);
+                self.selection = Some(new_index);
+                Ok(new_index)
             } else {
-                let element = self
-                    .items
-                    .pop()
-                    .ok_or("selection is Some, should have at least one item")?;
+                let element = self.items.pop().ok_or(Error::from(
+                    "selection is Some, should have at least one item",
+                ))?;
                 self.items.insert(0, element);
                 self.selection = Some(0);
+                Ok(0)
             }
-            Ok(())
         } else {
-            Err("no item selected".to_owned())
+            Err(Error::from("no item selected"))
         }
     }
 
-    pub fn shift_prev(&mut self) -> Result<(), String> {
+    pub fn shift_prev(&mut self) -> Result<usize> {
         if let Some(selected) = self.selection {
             if selected > 0 {
-                self.items.swap(selected, selected - 1);
-                self.selection = Some(selected - 1);
+                let new_index = selected - 1;
+                self.items.swap(selected, new_index);
+                self.selection = Some(new_index);
+                Ok(new_index)
             } else {
                 let element = self.items.remove(selected);
                 self.items.push(element);
                 self.selection = Some(self.items.len() - 1);
+                Ok(self.items.len() - 1)
             }
-            Ok(())
         } else {
-            Err("no item selected".to_owned())
+            Err(Error::from("no item selected"))
         }
     }
 
