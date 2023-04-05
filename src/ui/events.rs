@@ -1,6 +1,6 @@
 use super::widgets::{files::FileListResult, prompt::PromptEvent};
 use crate::app::data::{
-    load_decrypt, save_encrypt, App, AppPrompt, FileRequest, Journal, JournalPrompt, Project,
+    App, AppPrompt, DataDeserialize, DataSerialize, FileRequest, Journal, JournalPrompt, Project,
     SubProject, Task, DEFAULT_WIDTH_PERCENT,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -452,7 +452,9 @@ fn open_datadir(state: &App) -> Option<String> {
 
 fn save_state(state: &mut App, filepath: Option<&PathBuf>) -> Result<(), String> {
     let filepath = filepath.unwrap_or(&state.filepath);
-    save_encrypt(&state.journal, filepath, &state.journal.password)?;
+    state
+        .journal
+        .save_encrypt(filepath, &state.journal.password)?;
     state.filelist.refresh_filelist();
     Ok(())
 }
@@ -463,10 +465,10 @@ fn load_state(state: &mut App, name: &str, key: &str, merge: bool) -> Result<(),
         return Err("file does not exist".to_owned());
     }
     let loaded_journal = {
-        if let Ok(journal) = load_decrypt::<Journal>(&filepath, key) {
+        if let Ok(journal) = Journal::load_decrypt(&filepath, key) {
             journal
         } else {
-            load_decrypt::<Project>(&filepath, key)?.into()
+            Project::load_decrypt(&filepath, key)?.into()
         }
     };
     state.journal = match merge {

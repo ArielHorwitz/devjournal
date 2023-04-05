@@ -7,30 +7,28 @@ use std::{fmt, fs, path::PathBuf};
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
 
-pub fn load_decrypt<T>(filepath: &PathBuf, key: &str) -> Result<T, String>
+pub trait DataSerialize<T>
 where
-    T: DataDeserialize<T>,
+    Self: Serialize,
 {
-    let encrypted = fs::read(filepath).map_err(|e| format!("failed to read file [{e}]"))?;
-    let decrypted = decrypt(&encrypted, key)?;
-    T::deserialize(decrypted)
+    fn save_encrypt(&self, filepath: &PathBuf, key: &str) -> Result<(), String> {
+        let encoded =
+            bincode::serialize(&self).map_err(|e| format!("failed to serialize [{e}]"))?;
+        let encrypted = encrypt(&encoded, key)?;
+        fs::write(filepath, encrypted).map_err(|e| format!("failed to write file [{e}]"))
+    }
 }
 
-pub fn save_encrypt<T>(object: &T, filepath: &PathBuf, key: &str) -> Result<(), String>
+pub trait DataDeserialize<T>
 where
-    T: DataSerialize<T>,
+    T: for<'a> Deserialize<'a>,
 {
-    let encoded = T::serialize(object)?;
-    let encrypted = encrypt(&encoded, key)?;
-    fs::write(filepath, encrypted).map_err(|e| format!("failed to write file [{e}]"))
-}
-
-pub trait DataSerialize<T> {
-    fn serialize(decoded: &T) -> Result<Vec<u8>, String>;
-}
-
-pub trait DataDeserialize<T> {
-    fn deserialize(encoded: Vec<u8>) -> Result<T, String>;
+    fn load_decrypt(filepath: &PathBuf, key: &str) -> Result<T, String> {
+        let encrypted = fs::read(filepath).map_err(|e| format!("failed to read file [{e}]"))?;
+        let decrypted = decrypt(&encrypted, key)?;
+        bincode::deserialize::<T>(decrypted.as_slice())
+            .map_err(|e| format!("failed to deserialize [{e}]"))
+    }
 }
 
 #[derive(Clone)]
@@ -119,18 +117,9 @@ impl<'a> Default for Journal<'a> {
     }
 }
 
-impl<'a> DataSerialize<Journal<'a>> for Journal<'a> {
-    fn serialize(journal: &Self) -> Result<Vec<u8>, String> {
-        bincode::serialize(&journal).map_err(|e| format!("failed to serialize [{e}]"))
-    }
-}
+impl<'a> DataSerialize<Journal<'a>> for Journal<'a> {}
 
-impl<'a> DataDeserialize<Journal<'a>> for Journal<'a> {
-    fn deserialize(encoded: Vec<u8>) -> Result<Self, String> {
-        bincode::deserialize::<Self>(encoded.as_slice())
-            .map_err(|e| format!("failed to deserialize [{e}]"))
-    }
-}
+impl<'a> DataDeserialize<Journal<'a>> for Journal<'a> {}
 
 impl<'a> From<Project<'a>> for Journal<'a> {
     fn from(project: Project<'a>) -> Self {
@@ -222,18 +211,9 @@ impl<'a> Add<Project<'a>> for Project<'a> {
     }
 }
 
-impl<'a> DataSerialize<Project<'a>> for Project<'a> {
-    fn serialize(project: &Project) -> Result<Vec<u8>, String> {
-        bincode::serialize(&project).map_err(|e| format!("failed to serialize [{e}]"))
-    }
-}
+impl<'a> DataSerialize<Project<'a>> for Project<'a> {}
 
-impl<'a> DataDeserialize<Project<'a>> for Project<'a> {
-    fn deserialize(encoded: Vec<u8>) -> Result<Project<'a>, String> {
-        bincode::deserialize::<Project>(encoded.as_slice())
-            .map_err(|e| format!("failed to deserialize [{e}]"))
-    }
-}
+impl<'a> DataDeserialize<Project<'a>> for Project<'a> {}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SubProject {
