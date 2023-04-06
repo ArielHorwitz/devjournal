@@ -4,6 +4,8 @@ use crate::ui::widgets::{files::FileListWidget, prompt::PromptWidget};
 use serde::{self, Deserialize, Serialize};
 use std::fmt::Display;
 use std::ops::Add;
+use std::path::Path;
+use std::time::{Duration, Instant};
 use std::{fmt, fs, path::PathBuf};
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
@@ -134,10 +136,49 @@ pub enum AppPrompt {
     MergeFile(String),
 }
 
+pub enum FeedbackKind {
+    Nominal,
+    Error,
+}
+
+pub struct Feedback {
+    pub message: String,
+    pub kind: FeedbackKind,
+    pub instant: Instant,
+}
+
+impl Feedback {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_owned(),
+            kind: FeedbackKind::Nominal,
+            instant: Instant::now(),
+        }
+    }
+}
+
+impl From<Error> for Feedback {
+    fn from(value: Error) -> Self {
+        Self {
+            message: value.message,
+            kind: FeedbackKind::Error,
+            instant: Instant::now(),
+        }
+    }
+}
+
+pub fn filename(filepath: &Path) -> String {
+    filepath
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or("/missing_filename/".into())
+}
+
 pub struct App<'a> {
     pub title: &'a str,
     pub datadir: PathBuf,
     pub user_feedback_text: String,
+    feedback_stack: Vec<Feedback>,
     pub filelist: FileListWidget<'a>,
     pub file_request: Option<FileRequest>,
     pub prompt: PromptWidget<'a>,
@@ -152,6 +193,7 @@ impl<'a> App<'a> {
             title,
             datadir: datadir.clone(),
             user_feedback_text: format!("Welcome to {title}."),
+            feedback_stack: vec![Feedback::new(&format!("Welcome to {title}."))],
             filelist: FileListWidget::new(datadir.to_string_lossy().to_string().as_str()),
             file_request: None,
             prompt: PromptWidget::default(),
@@ -159,6 +201,19 @@ impl<'a> App<'a> {
             filepath: datadir.join("new_project"),
             journal: Default::default(),
         }
+    }
+
+    pub fn feedback(&self) -> Option<&Feedback> {
+        if let Some(feedback) = self.feedback_stack.get(0) {
+            if Instant::now() - feedback.instant <= Duration::from_millis(2000) {
+                return Some(feedback);
+            }
+        }
+        None
+    }
+
+    pub fn add_feedback(&mut self, feedback: Feedback) {
+        self.feedback_stack.insert(0, feedback);
     }
 }
 

@@ -30,6 +30,18 @@ pub fn text_dim() -> Style {
     Style::default().fg(Color::DarkGray)
 }
 
+pub fn text_good() -> Style {
+    Style::default()
+        .fg(Color::Rgb(0, 255, 32))
+        .bg(Color::Rgb(0, 16, 16))
+}
+
+pub fn text_warning() -> Style {
+    Style::default()
+        .fg(Color::Rgb(255, 32, 0))
+        .bg(Color::Rgb(16, 16, 0))
+}
+
 pub fn list_text() -> Style {
     Style::default().fg(Color::Rgb(128, 192, 255))
 }

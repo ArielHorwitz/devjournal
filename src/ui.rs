@@ -1,4 +1,4 @@
-use crate::app::data::{App, Project};
+use crate::app::data::{filename, App, FeedbackKind, Project};
 pub mod events;
 mod styles;
 pub mod widgets;
@@ -16,8 +16,8 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &App, debug: bool) {
     let chunks = Layout::default()
         .constraints(vec![
             Constraint::Length(2),
-            Constraint::Length(frame.size().height.saturating_sub(4)),
-            Constraint::Length(2),
+            Constraint::Length(frame.size().height.saturating_sub(3)),
+            Constraint::Length(1),
         ])
         .split(frame.size());
     draw_tab_bar(frame, state, chunks[0]);
@@ -36,7 +36,7 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &App, debug: bool) {
     if state.prompt_request.is_some() {
         state.prompt.draw(frame, chunks[1]);
     }
-    draw_feedback_text(frame, state, chunks[2]);
+    draw_status_bar(frame, state, chunks[2]);
 }
 
 fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
@@ -76,23 +76,46 @@ fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
     frame.render_widget(tabs, chunks[2]);
 }
 
-fn draw_feedback_text<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
-    let block = Block::default()
-        .borders(Borders::TOP)
-        .border_style(styles::border());
-    let inner = block.inner(chunk);
-    frame.render_widget(block, chunk);
+fn draw_status_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Ratio(3, 4), Constraint::Ratio(1, 4)])
-        .split(inner);
-    frame.render_widget(Paragraph::new(state.user_feedback_text.clone()), chunks[0]);
-    let text = Span::styled(
-        format!("{}×{} ", frame.size().width, frame.size().height),
-        styles::text_dim(),
+        .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(chunk);
+    let feedback_area = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![
+            Constraint::Percentage(25),
+            Constraint::Percentage(50),
+            Constraint::Percentage(25),
+        ])
+        .split(chunk)[1];
+    let filename = format!(
+        "{}{}",
+        filename(&state.filepath),
+        match state.journal.projects.selected() {
+            None => "".to_owned(),
+            Some(project) => format!(" / {}", project.name),
+        }
     );
-    let paragraph = Paragraph::new(text).alignment(tui::layout::Alignment::Right);
-    frame.render_widget(paragraph, chunks[1]);
+    let status_filename = Paragraph::new(Span::styled(filename, styles::text()))
+        .alignment(tui::layout::Alignment::Left);
+    frame.render_widget(status_filename, chunks[0]);
+    let status_terminal = Paragraph::new(Span::styled(
+        format!("{}×{}", frame.size().width, frame.size().height),
+        styles::text_dim(),
+    ))
+    .alignment(tui::layout::Alignment::Right);
+    frame.render_widget(status_terminal, chunks[1]);
+    if let Some(feedback) = state.feedback() {
+        let style = match feedback.kind {
+            FeedbackKind::Nominal => styles::text_good(),
+            FeedbackKind::Error => styles::text_warning(),
+        };
+        let paragraph = Paragraph::new(format!(" {}", feedback.message.clone()))
+            .alignment(tui::layout::Alignment::Center)
+            .style(style);
+        frame.render_widget(paragraph, feedback_area);
+    };
 }
 
 pub fn draw_debug_tab<B>(frame: &mut Frame<B>, _state: &App, area: Rect)

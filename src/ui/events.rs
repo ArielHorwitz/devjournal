@@ -1,131 +1,159 @@
 use super::widgets::{files::FileListResult, prompt::PromptEvent};
 use crate::app::data::{
-    App, AppPrompt, DataDeserialize, DataSerialize, FileRequest, Journal, JournalPrompt, Project,
-    SubProject, Task, DEFAULT_WIDTH_PERCENT,
+    filename, App, AppPrompt, DataDeserialize, DataSerialize, Error, Feedback, FileRequest,
+    Journal, JournalPrompt, Project, Result, SubProject, Task, DEFAULT_WIDTH_PERCENT,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{path::PathBuf, process::Command};
 
 pub fn handle_event(key: KeyEvent, state: &mut App) {
-    match handle_global_event(key, state) {
-        Some(feedback) => state.user_feedback_text = feedback,
-        None => {
-            let is_prompt = state
-                .journal
-                .project()
-                .map_or_else(|| false, |p| p.prompt_request.is_some());
-            let result = {
-                if state.prompt_request.is_some() {
-                    handle_app_prompt_event(key, state)
-                } else if state.file_request.is_some() {
-                    handle_filelist_event(key, state)
-                } else if is_prompt {
-                    handle_journal_prompt_event(key, state)
-                } else {
-                    handle_journal_event(key, state)
-                }
-            };
-            if let Some(feedback) = result {
-                state.user_feedback_text = feedback;
-            };
+    if !handle_global_event(key, state) {
+        let is_prompt = state
+            .journal
+            .project()
+            .map_or_else(|| false, |p| p.prompt_request.is_some());
+        if state.prompt_request.is_some() {
+            handle_app_prompt_event(key, state);
+        } else if state.file_request.is_some() {
+            handle_filelist_event(key, state);
+        } else if is_prompt {
+            handle_journal_prompt_event(key, state);
+        } else {
+            handle_journal_event(key, state);
         }
-    }
+    };
 }
 
-fn handle_global_event(key: KeyEvent, state: &mut App) -> Option<String> {
+fn handle_global_event(key: KeyEvent, state: &mut App) -> bool {
     match (key.code, key.modifiers) {
         // Global operations
-        (KeyCode::Char('o'), KeyModifiers::ALT) => return open_datadir(state),
+        (KeyCode::Char('o'), KeyModifiers::ALT) => {
+            if let Err(e) = open_datadir(state) {
+                state.add_feedback(Feedback::from(e));
+            };
+        }
         (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
             set_app_prompt(state, AppPrompt::NewJournal, "New file name:", "", false);
         }
-        _ => (),
+        _ => return false,
     };
-    None
+    true
 }
 
-fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
+fn handle_journal_event(key: KeyEvent, state: &mut App) {
     match (key.code, key.modifiers) {
         // New
         (KeyCode::Char('n'), KeyModifiers::ALT) => {
-            set_project_prompt(
-                state,
-                JournalPrompt::AddProject,
-                "New project name:",
-                "",
-                false,
-            );
+            if let Some(project) = state.journal.project() {
+                set_project_prompt(
+                    project,
+                    JournalPrompt::AddProject,
+                    "New project name:",
+                    "",
+                    false,
+                );
+            }
         }
         (KeyCode::Char('N'), KeyModifiers::SHIFT) => {
-            set_project_prompt(
-                state,
-                JournalPrompt::AddSubProject,
-                "New Subproject Name:",
-                "",
-                false,
-            );
+            if let Some(project) = state.journal.project() {
+                set_project_prompt(
+                    project,
+                    JournalPrompt::AddSubProject,
+                    "New Subproject Name:",
+                    "",
+                    false,
+                );
+            }
         }
         (KeyCode::Char('n'), KeyModifiers::NONE) => {
-            set_project_prompt(state, JournalPrompt::AddTask, "New Task:", "", false);
+            if let Some(project) = state.journal.project() {
+                set_project_prompt(project, JournalPrompt::AddTask, "New Task:", "", false);
+            }
         }
         // Rename
         (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
             let prefill = state.journal.name.clone();
-            set_project_prompt(
-                state,
-                JournalPrompt::RenameJournal,
-                "Journal Name:",
-                &prefill,
-                false,
-            );
-        }
-        (KeyCode::Char('r'), KeyModifiers::ALT) => {
-            let prefill = state.journal.project()?.name.clone();
-            set_project_prompt(
-                state,
-                JournalPrompt::RenameProject,
-                "Project Name:",
-                &prefill,
-                false,
-            );
-        }
-        (KeyCode::Char('R'), KeyModifiers::SHIFT) => {
-            let prefill = state.journal.project()?.subproject()?.name.clone();
-            set_project_prompt(
-                state,
-                JournalPrompt::RenameSubProject,
-                "Subproject Name:",
-                &prefill,
-                false,
-            );
-        }
-        (KeyCode::Char('r'), KeyModifiers::NONE) => {
-            if let Some(task) = state.journal.project()?.subproject()?.task() {
-                let desc = task.desc.clone();
+            if let Some(project) = state.journal.project() {
                 set_project_prompt(
-                    state,
-                    JournalPrompt::RenameTask,
-                    "Rename Task:",
-                    &desc,
+                    project,
+                    JournalPrompt::RenameJournal,
+                    "Journal Name:",
+                    &prefill,
                     false,
                 );
+            }
+        }
+        (KeyCode::Char('r'), KeyModifiers::ALT) => {
+            if let Some(project) = state.journal.project() {
+                set_project_prompt(
+                    project,
+                    JournalPrompt::RenameProject,
+                    "Project Name:",
+                    &project.name.clone(),
+                    false,
+                );
+            }
+        }
+        (KeyCode::Char('R'), KeyModifiers::SHIFT) => {
+            if let Some(project) = state.journal.project() {
+                if project.subprojects.selection().is_some() {
+                    let prefill = project
+                        .subproject()
+                        .expect("selection is Some, should not be empty")
+                        .name
+                        .clone();
+                    set_project_prompt(
+                        project,
+                        JournalPrompt::RenameSubProject,
+                        "Subproject Name:",
+                        &prefill,
+                        false,
+                    );
+                };
+            }
+        }
+        (KeyCode::Char('r'), KeyModifiers::NONE) => {
+            if let Some(project) = state.journal.project() {
+                let mut task_name = None;
+                if let Some(subproject) = project.subproject() {
+                    if let Some(task) = subproject.task() {
+                        task_name = Some(task.desc.clone());
+                    }
+                }
+                if let Some(prefill) = task_name {
+                    set_project_prompt(
+                        project,
+                        JournalPrompt::RenameTask,
+                        "Rename Task:",
+                        &prefill,
+                        false,
+                    );
+                }
             }
         }
         // Delete
         (KeyCode::Char('d'), KeyModifiers::ALT) => {
             state.journal.projects.pop_selected();
-            bind_focus_size(state);
         }
         (KeyCode::Char('D'), KeyModifiers::SHIFT) => {
-            state.journal.project()?.subprojects.pop_selected();
-            bind_focus_size(state);
+            if let Some(project) = state.journal.project() {
+                project.subprojects.pop_selected();
+            };
         }
         (KeyCode::Char('d'), KeyModifiers::NONE) => {
-            state.journal.project()?.subproject()?.tasks.pop_selected();
+            if let Some(project) = state.journal.project() {
+                if let Some(subproject) = project.subproject() {
+                    subproject.tasks.pop_selected();
+                }
+            }
         }
         // Navigation
         (KeyCode::Esc, KeyModifiers::NONE) => {
-            state.journal.project()?.subproject()?.tasks.deselect();
+            if let Some(project) = state.journal.project() {
+                if let Some(subproject) = project.subproject() {
+                    subproject.tasks.deselect();
+                }
+            }
         }
         (KeyCode::Tab, KeyModifiers::NONE) => state.journal.projects.select_next(),
         (KeyCode::BackTab, _) => state.journal.projects.select_prev(),
@@ -136,16 +164,28 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
             state.journal.projects.select_prev();
         }
         (KeyCode::Char('l'), KeyModifiers::NONE) => {
-            state.journal.project()?.subprojects.select_next()
+            if let Some(project) = state.journal.project() {
+                project.subprojects.select_next();
+            }
         }
         (KeyCode::Char('h'), KeyModifiers::NONE) => {
-            state.journal.project()?.subprojects.select_prev()
+            if let Some(project) = state.journal.project() {
+                project.subprojects.select_prev();
+            }
         }
         (KeyCode::Char('j'), KeyModifiers::NONE) => {
-            state.journal.project()?.subproject()?.tasks.select_next();
+            if let Some(project) = state.journal.project() {
+                if let Some(subproject) = project.subproject() {
+                    subproject.tasks.select_next();
+                }
+            }
         }
         (KeyCode::Char('k'), KeyModifiers::NONE) => {
-            state.journal.project()?.subproject()?.tasks.select_prev();
+            if let Some(project) = state.journal.project() {
+                if let Some(subproject) = project.subproject() {
+                    subproject.tasks.select_prev();
+                }
+            }
         }
         // Shift
         (KeyCode::PageDown, KeyModifiers::ALT) => {
@@ -155,56 +195,62 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
             state.journal.projects.shift_prev().ok();
         }
         (KeyCode::Char('L'), KeyModifiers::SHIFT) => {
-            state.journal.project()?.subprojects.shift_next().ok();
+            if let Some(project) = state.journal.project() {
+                project.subprojects.shift_next().ok();
+            }
         }
         (KeyCode::Char('H'), KeyModifiers::SHIFT) => {
-            state.journal.project()?.subprojects.shift_prev().ok();
+            if let Some(project) = state.journal.project() {
+                project.subprojects.shift_prev().ok();
+            }
         }
         (KeyCode::Char('j'), KeyModifiers::CONTROL) => {
-            state
-                .journal
-                .project()?
-                .subproject()?
-                .tasks
-                .shift_next()
-                .ok();
+            if let Some(project) = state.journal.project() {
+                if let Some(subproject) = project.subproject() {
+                    subproject.tasks.shift_next().ok();
+                }
+            }
         }
         (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
-            state
-                .journal
-                .project()?
-                .subproject()?
-                .tasks
-                .shift_prev()
-                .ok();
+            if let Some(project) = state.journal.project() {
+                if let Some(subproject) = project.subproject() {
+                    subproject.tasks.shift_prev().ok();
+                }
+            }
         }
         // Move
         (KeyCode::Char('l'), KeyModifiers::CONTROL) => move_task(state, false),
         (KeyCode::Char('h'), KeyModifiers::CONTROL) => move_task(state, true),
         // UI
         (KeyCode::Char('='), KeyModifiers::NONE) => {
-            state.journal.project()?.focused_width_percent += 5;
-            bind_focus_size(state);
+            if let Some(project) = state.journal.project() {
+                project.focused_width_percent += 5;
+                bind_focus_size(project);
+            }
         }
         (KeyCode::Char('-'), KeyModifiers::NONE) => {
             if let Some(project) = state.journal.project() {
                 project.focused_width_percent = project.focused_width_percent.saturating_sub(5);
-                bind_focus_size(state);
+                bind_focus_size(project);
             }
         }
         (KeyCode::Char('\\'), KeyModifiers::NONE) => {
-            state.journal.project()?.split_vertical = !state.journal.project()?.split_vertical;
+            if let Some(project) = state.journal.project() {
+                project.split_vertical = !project.split_vertical;
+            }
         }
         // File
         (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
             let name = state.journal.name.clone();
-            set_project_prompt(
-                state,
-                JournalPrompt::SetPassword,
-                &format!("Set new password for `{name}`:"),
-                "",
-                true,
-            );
+            if let Some(project) = state.journal.project() {
+                set_project_prompt(
+                    project,
+                    JournalPrompt::SetPassword,
+                    &format!("Set new password for `{name}`:"),
+                    "",
+                    true,
+                );
+            }
         }
         (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
             state.file_request = Some(FileRequest::Load);
@@ -226,8 +272,11 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
         }
         (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
             return match save_state(state, None) {
-                Err(e) => Some(e),
-                Ok(_) => Some(format!("Saved journal: {:?}", state.filepath)),
+                Err(e) => state.add_feedback(Feedback::from(e)),
+                Ok(_) => state.add_feedback(Feedback::new(&format!(
+                    "Saved journal `{}`",
+                    filename(&state.filepath)
+                ))),
             };
         }
         // Other
@@ -239,7 +288,6 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) -> Option<String> {
         }
         _ => (),
     };
-    None
 }
 
 fn move_task(state: &mut App, to_prev: bool) {
@@ -270,7 +318,7 @@ fn move_task(state: &mut App, to_prev: bool) {
     }
 }
 
-fn handle_app_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
+fn handle_app_prompt_event(key: KeyEvent, state: &mut App) {
     let request = state
         .prompt_request
         .clone()
@@ -278,9 +326,8 @@ fn handle_app_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
     match state.prompt.handle_event(key) {
         PromptEvent::Cancelled => {
             state.prompt_request = None;
-            None
         }
-        PromptEvent::AwaitingResult(_) => None,
+        PromptEvent::AwaitingResult(_) => (),
         PromptEvent::Result(result_text) => {
             state.prompt.clear();
             state.prompt_request = None;
@@ -288,90 +335,111 @@ fn handle_app_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
                 AppPrompt::NewJournal => {
                     state.journal = Journal::new(&result_text);
                     state.filepath = state.datadir.join(result_text);
-                    save_state(state, None).ok()?;
-                    reset_ui(state);
-                    Some(format!("New journal created at {:?}", state.filepath))
+                    match save_state(state, None) {
+                        Err(e) => {
+                            state.add_feedback(Feedback::from(e));
+                        }
+                        Ok(_) => {
+                            if let Some(project) = state.journal.project() {
+                                reset_ui(project);
+                            };
+                            state.add_feedback(Feedback::new(&format!(
+                                "Created journal `{}`",
+                                filename(&state.filepath)
+                            )));
+                        }
+                    }
                 }
                 AppPrompt::LoadFile(name) => match load_state(state, &name, &result_text, false) {
-                    Err(e) => Some(e),
-                    Ok(_) => Some(format!("Loaded journal: {:?}", state.filepath)),
+                    Err(e) => state.add_feedback(Feedback::from(e)),
+                    Ok(_) => state.add_feedback(Feedback::new(&format!(
+                        "Loaded journal `{}`",
+                        filename(&state.filepath)
+                    ))),
                 },
                 AppPrompt::MergeFile(name) => match load_state(state, &name, &result_text, true) {
-                    Err(e) => Some(e),
-                    Ok(_) => Some(format!("Loaded journal: {:?}", state.filepath)),
+                    Err(e) => state.add_feedback(Feedback::from(e)),
+                    Ok(_) => state.add_feedback(Feedback::new(&format!(
+                        "Merged journal `{}`",
+                        filename(&state.filepath)
+                    ))),
                 },
-            }
+            };
         }
     }
 }
 
-fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) -> Option<String> {
-    if let Some(request) = state.journal.project()?.prompt_request.clone() {
-        match state.journal.project()?.prompt.handle_event(key) {
-            PromptEvent::Cancelled => state.journal.project()?.prompt_request = None,
-            PromptEvent::AwaitingResult(_) => (),
-            PromptEvent::Result(result_text) => {
-                state.journal.project()?.prompt.clear();
-                state.journal.project()?.prompt_request = None;
-                match request {
-                    JournalPrompt::AddProject => {
-                        state
-                            .journal
-                            .projects
-                            .add_item(Project::new(&result_text), true);
-                        bind_focus_size(state);
-                    }
-                    JournalPrompt::AddSubProject => {
-                        if let Some(project) = state.journal.project() {
+fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) {
+    if let Some(project) = state.journal.project() {
+        if let Some(request) = project.prompt_request.clone() {
+            match project.prompt.handle_event(key) {
+                PromptEvent::Cancelled => project.prompt_request = None,
+                PromptEvent::AwaitingResult(_) => (),
+                PromptEvent::Result(result_text) => {
+                    project.prompt.clear();
+                    project.prompt_request = None;
+                    match request {
+                        JournalPrompt::AddProject => {
+                            state
+                                .journal
+                                .projects
+                                .add_item(Project::new(&result_text), true);
+                        }
+                        JournalPrompt::AddSubProject => {
                             project
                                 .subprojects
                                 .add_item(SubProject::new(&result_text), true);
-                            bind_focus_size(state);
+                            bind_focus_size(project);
                         }
-                    }
-                    JournalPrompt::AddTask => {
-                        state
-                            .journal
-                            .project()?
-                            .subproject()?
-                            .tasks
-                            .add_item(Task::new(&result_text), true);
-                    }
-                    JournalPrompt::RenameJournal => {
-                        state.journal.name = result_text;
-                        return Some(format!("Renamed journal: {}", state.journal.name));
-                    }
-                    JournalPrompt::RenameProject => {
-                        if let Some(project) = state.journal.project() {
-                            project.name = result_text;
-                            return Some(format!("Renamed project: {}", project.name));
+                        JournalPrompt::AddTask => {
+                            if let Some(subproject) = project.subproject() {
+                                subproject.tasks.add_item(Task::new(&result_text), true);
+                            }
                         }
-                    }
-                    JournalPrompt::RenameSubProject => {
-                        state.journal.project()?.subproject()?.name = result_text;
-                    }
-                    JournalPrompt::RenameTask => {
-                        state.journal.project()?.subproject()?.task()?.desc = result_text;
-                    }
-                    JournalPrompt::SetPassword => {
-                        state.journal.password = result_text;
-                        return Some("Set encryption password".to_owned());
-                    }
-                };
-                state.journal.project()?.prompt_request = None;
-            }
-        };
+                        JournalPrompt::RenameJournal => {
+                            state.journal.name = result_text;
+                            return state.add_feedback(Feedback::new(&format!(
+                                "Renamed journal: {}",
+                                state.journal.name
+                            )));
+                        }
+                        JournalPrompt::RenameProject => {
+                            project.name = result_text.clone();
+                            return state.add_feedback(Feedback::new(&format!(
+                                "Renamed project: {result_text}",
+                            )));
+                        }
+                        JournalPrompt::RenameSubProject => {
+                            if let Some(subproject) = project.subproject() {
+                                subproject.name = result_text;
+                            }
+                        }
+                        JournalPrompt::RenameTask => {
+                            if let Some(subproject) = project.subproject() {
+                                if let Some(task) = subproject.task() {
+                                    task.desc = result_text;
+                                }
+                            }
+                        }
+                        JournalPrompt::SetPassword => {
+                            state.journal.password = result_text;
+                            state.add_feedback(Feedback::new("Set encryption password"));
+                        }
+                    };
+                }
+            };
+        }
     }
-    None
 }
 
-fn handle_filelist_event(key: KeyEvent, state: &mut App) -> Option<String> {
+fn handle_filelist_event(key: KeyEvent, state: &mut App) {
     match state.filelist.handle_event(key) {
         FileListResult::AwaitingResult => (),
         FileListResult::Cancelled => state.file_request = None,
-        FileListResult::Feedback(message) => state.user_feedback_text = message,
+        FileListResult::Feedback(message) => state.add_feedback(Feedback::new(&message)),
         FileListResult::Result(name) => {
             if let Some(fr) = state.file_request {
+                state.file_request = None;
                 match fr {
                     FileRequest::Load => set_app_prompt(
                         state,
@@ -388,17 +456,19 @@ fn handle_filelist_event(key: KeyEvent, state: &mut App) -> Option<String> {
                         true,
                     ),
                     FileRequest::Save => {
-                        return match save_state(state, Some(&state.datadir.join(name))) {
-                            Err(e) => Some(e),
-                            Ok(_) => Some(format!("Saved journal {:?}", state.filepath)),
+                        let filepath = state.datadir.join(name);
+                        return match save_state(state, Some(&filepath)) {
+                            Err(e) => state.add_feedback(Feedback::from(e)),
+                            Ok(_) => state.add_feedback(Feedback::new(&format!(
+                                "Saved journal `{}`",
+                                filename(&filepath)
+                            ))),
                         };
                     }
                 }
-                state.file_request = None;
             }
         }
     }
-    None
 }
 
 fn set_app_prompt(
@@ -415,54 +485,50 @@ fn set_app_prompt(
 }
 
 fn set_project_prompt(
-    state: &mut App,
+    project: &mut Project,
     request: JournalPrompt,
     prompt_text: &str,
     prefill_text: &str,
     password: bool,
 ) {
-    if let Some(project) = state.journal.project() {
-        project.prompt.set_prompt_text(prompt_text);
-        project.prompt.set_text(prefill_text);
-        project.prompt_request = Some(request);
-        project.prompt.set_password(password);
-    }
+    project.prompt.set_prompt_text(prompt_text);
+    project.prompt.set_text(prefill_text);
+    project.prompt_request = Some(request);
+    project.prompt.set_password(password);
 }
 
-fn reset_ui(state: &mut App) {
-    if let Some(project) = state.journal.project() {
-        project.focused_width_percent = DEFAULT_WIDTH_PERCENT;
-        bind_focus_size(state);
-    }
+fn reset_ui(project: &mut Project) {
+    project.focused_width_percent = DEFAULT_WIDTH_PERCENT;
+    bind_focus_size(project);
 }
 
-fn bind_focus_size(state: &mut App) {
-    if let Some(project) = state.journal.project() {
-        let min_width = (100. / project.subprojects.len() as f32).max(5.) as u16;
-        project.focused_width_percent = project.focused_width_percent.min(95).max(min_width);
-    }
+fn bind_focus_size(project: &mut Project) {
+    let min_width = (100. / project.subprojects.len() as f32).max(5.) as u16;
+    project.focused_width_percent = project.focused_width_percent.min(95).max(min_width);
 }
 
-fn open_datadir(state: &App) -> Option<String> {
-    if let Err(e) = Command::new("xdg-open").arg(&state.datadir).spawn() {
-        return Some(format!("failed to open {:?} [{e}]", &state.datadir));
-    }
-    None
+fn open_datadir(state: &App) -> Result<()> {
+    Command::new("xdg-open")
+        .arg(&state.datadir)
+        .spawn()
+        .map_err(Error::from)?;
+    Ok(())
 }
 
-fn save_state(state: &mut App, filepath: Option<&PathBuf>) -> Result<(), String> {
+fn save_state(state: &mut App, filepath: Option<&PathBuf>) -> Result<()> {
     let filepath = filepath.unwrap_or(&state.filepath);
     state
         .journal
         .save_encrypt(filepath, &state.journal.password)?;
+    state.filepath = filepath.clone();
     state.filelist.refresh_filelist();
     Ok(())
 }
 
-fn load_state(state: &mut App, name: &str, key: &str, merge: bool) -> Result<(), String> {
+fn load_state(state: &mut App, name: &str, key: &str, merge: bool) -> Result<()> {
     let filepath = state.datadir.join(name);
     if !filepath.exists() {
-        return Err("file does not exist".to_owned());
+        return Err(Error::from("file does not exist"));
     }
     let loaded_journal = {
         if let Ok(journal) = Journal::load_decrypt(&filepath, key) {
@@ -478,6 +544,5 @@ fn load_state(state: &mut App, name: &str, key: &str, merge: bool) -> Result<(),
     state.journal.password = key.to_owned();
     state.filepath = filepath;
     state.filelist.refresh_filelist();
-    reset_ui(state);
     Ok(())
 }
