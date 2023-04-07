@@ -47,7 +47,7 @@ impl<'a> FileListWidget<'a> {
             style_title: styles::title(),
             style_border: styles::border_highlighted(),
         };
-        widget.refresh_filelist();
+        widget.reset();
         widget.filelist.select_next();
         widget
     }
@@ -56,7 +56,12 @@ impl<'a> FileListWidget<'a> {
         self.title = text.to_owned();
     }
 
-    pub fn refresh_filelist(&mut self) {
+    pub fn reset(&mut self) {
+        self.set_focus(Focus::FileList);
+        self.refresh_filelist();
+    }
+
+    fn refresh_filelist(&mut self) {
         let mut entries: Vec<PathBuf> = read_dir(&self.datadir)
             .expect("cannot read directory")
             .map(|res| res.expect("cannot read file").path())
@@ -120,7 +125,7 @@ impl<'a> FileListWidget<'a> {
         match (key.code, key.modifiers) {
             (KeyCode::Esc, KeyModifiers::NONE) => FileListResult::Cancelled,
             (KeyCode::F(5), KeyModifiers::NONE) => {
-                self.refresh_filelist();
+                self.reset();
                 FileListResult::AwaitingResult
             }
             _ => FileListResult::AwaitingResult,
@@ -152,7 +157,7 @@ impl<'a> FileListWidget<'a> {
                 if let Some(name) = self.filelist.pop_selected() {
                     remove_file(PathBuf::from(&self.datadir).join(&name))
                         .expect("failed to remove file");
-                    self.refresh_filelist();
+                    self.reset();
                     return FileListResult::Feedback(format!("Deleted project file: {name}"));
                 }
             }

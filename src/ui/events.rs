@@ -254,19 +254,19 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) {
         }
         (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
             state.file_request = Some(FileRequest::Load);
-            state.filelist.refresh_filelist();
+            state.filelist.reset();
             state.filelist.set_title_text("Open Journal:");
             state.filelist.set_prompt_text("Create New File:");
         }
         (KeyCode::Char('O'), KeyModifiers::SHIFT) => {
             state.file_request = Some(FileRequest::LoadMerge);
-            state.filelist.refresh_filelist();
+            state.filelist.reset();
             state.filelist.set_title_text("Merge Journal:");
             state.filelist.set_prompt_text("");
         }
         (KeyCode::Char('s'), KeyModifiers::ALT) => {
             state.file_request = Some(FileRequest::Save);
-            state.filelist.refresh_filelist();
+            state.filelist.reset();
             state.filelist.set_title_text("Save Journal:");
             state.filelist.set_prompt_text("Save File As:");
         }
@@ -521,7 +521,7 @@ fn save_state(state: &mut App, filepath: Option<&PathBuf>) -> Result<()> {
         .journal
         .save_encrypt(filepath, &state.journal.password)?;
     state.filepath = filepath.clone();
-    state.filelist.refresh_filelist();
+    state.filelist.reset();
     Ok(())
 }
 
@@ -543,6 +543,6 @@ fn load_state(state: &mut App, name: &str, key: &str, merge: bool) -> Result<()>
     };
     state.journal.password = key.to_owned();
     state.filepath = filepath;
-    state.filelist.refresh_filelist();
+    state.filelist.reset();
     Ok(())
 }
