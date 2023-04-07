@@ -33,13 +33,13 @@ pub fn text_dim() -> Style {
 pub fn text_good() -> Style {
     Style::default()
         .fg(Color::Rgb(0, 255, 32))
-        .bg(Color::Rgb(0, 16, 16))
+        .bg(Color::Rgb(0, 48, 48))
 }
 
 pub fn text_warning() -> Style {
     Style::default()
         .fg(Color::Rgb(255, 32, 0))
-        .bg(Color::Rgb(16, 16, 0))
+        .bg(Color::Rgb(28, 28, 0))
 }
 
 pub fn list_text() -> Style {

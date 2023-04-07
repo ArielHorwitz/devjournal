@@ -528,7 +528,9 @@ fn save_state(state: &mut App, filepath: Option<&PathBuf>) -> Result<()> {
 fn load_state(state: &mut App, name: &str, key: &str, merge: bool) -> Result<()> {
     let filepath = state.datadir.join(name);
     if !filepath.exists() {
-        return Err(Error::from("file does not exist"));
+        Journal::new(name)
+            .save_encrypt(&filepath, key)
+            .map_err(|e| Error::from(format!("failed to create new file [{e}]")))?;
     }
     let loaded_journal = Journal::load_decrypt(&filepath, key)?;
     state.journal = match merge {

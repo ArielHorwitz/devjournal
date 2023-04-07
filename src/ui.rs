@@ -8,7 +8,7 @@ use tui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Tabs},
+    widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, Tabs},
     Frame,
 };
 
@@ -55,7 +55,7 @@ fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
         .split(inner);
     let (title_text, title_style) = match state.journal.password.is_empty() {
         false => (state.journal.name.clone(), styles::title()),
-        true => (format!("*{}", state.journal.name), styles::warning()),
+        true => (format!("!{}", state.journal.name), styles::warning()),
     };
     frame.render_widget(
         Paragraph::new(Span::styled(title_text, title_style)),
@@ -81,24 +81,18 @@ fn draw_status_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
         .direction(Direction::Horizontal)
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(chunk);
-    let feedback_area = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(vec![
-            Constraint::Percentage(25),
-            Constraint::Percentage(50),
-            Constraint::Percentage(25),
-        ])
-        .split(chunk)[1];
-    let filename = format!(
-        "{}{}",
-        filename(&state.filepath),
-        match state.journal.projects.selected() {
-            None => "".to_owned(),
-            Some(project) => format!(" / {}", project.name),
+    let mut journal_path = state.journal.name.clone();
+    if let Some(project) = state.journal.projects.selected() {
+        journal_path += &format!(" / {}", project.name);
+        if let Some(subproject) = project.subprojects.selected() {
+            journal_path += &format!(" / {}", subproject.name);
         }
-    );
-    let status_filename = Paragraph::new(Span::styled(filename, styles::text()))
-        .alignment(tui::layout::Alignment::Left);
+    };
+    let spans = Spans::from(vec![
+        Span::styled(format!("`{}`", filename(&state.filepath)), styles::text()),
+        Span::styled(format!(" [{journal_path}]"), styles::text_dim()),
+    ]);
+    let status_filename = Paragraph::new(spans).alignment(tui::layout::Alignment::Left);
     frame.render_widget(status_filename, chunks[0]);
     let status_terminal = Paragraph::new(Span::styled(
         format!("{}×{}", frame.size().width, frame.size().height),
@@ -114,7 +108,8 @@ fn draw_status_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
         let paragraph = Paragraph::new(format!(" {}", feedback.message.clone()))
             .alignment(tui::layout::Alignment::Center)
             .style(style);
-        frame.render_widget(paragraph, feedback_area);
+        frame.render_widget(Clear, chunk);
+        frame.render_widget(paragraph, chunk);
     };
 }
 

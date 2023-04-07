@@ -31,7 +31,9 @@ fn get_cipher(key: &str) -> Result<Aes256Gcm> {
 pub fn encrypt(plaintext: &Vec<u8>, key: &str) -> Result<Vec<u8>> {
     let cipher = get_cipher(key)?;
     let nonce_data: [u8; NONCE_SIZE] = thread_rng().gen();
-    let mut ciphertext = cipher.encrypt(Nonce::from_slice(&nonce_data), plaintext.as_slice())?;
+    let mut ciphertext = cipher
+        .encrypt(Nonce::from_slice(&nonce_data), plaintext.as_slice())
+        .map_err(|e| Error::from(format!("encryption failure [{e}]")))?;
     ciphertext.extend_from_slice(&nonce_data);
     Ok(ciphertext)
 }
@@ -41,8 +43,10 @@ pub fn decrypt(ciphertext: &Vec<u8>, key: &str) -> Result<Vec<u8>> {
     let split_at = ciphertext.len().saturating_sub(NONCE_SIZE);
     (split_at > 0)
         .then_some(())
-        .ok_or(Error::from("file too small"))?;
+        .ok_or(Error::from("file too small to decrypt"))?;
     let (ciphertext, nonce_data) = ciphertext.split_at(split_at);
-    let plaintext = cipher.decrypt(Nonce::from_slice(nonce_data), ciphertext)?;
+    let plaintext = cipher
+        .decrypt(Nonce::from_slice(nonce_data), ciphertext)
+        .map_err(|e| Error::from(format!("decryption failure [{e}]")))?;
     Ok(plaintext)
 }
