@@ -530,13 +530,7 @@ fn load_state(state: &mut App, name: &str, key: &str, merge: bool) -> Result<()>
     if !filepath.exists() {
         return Err(Error::from("file does not exist"));
     }
-    let loaded_journal = {
-        if let Ok(journal) = Journal::load_decrypt(&filepath, key) {
-            journal
-        } else {
-            Project::load_decrypt(&filepath, key)?.into()
-        }
-    };
+    let loaded_journal = Journal::load_decrypt(&filepath, key)?;
     state.journal = match merge {
         true => state.journal.clone() + loaded_journal,
         false => loaded_journal,
