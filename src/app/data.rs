@@ -175,9 +175,7 @@ pub fn filename(filepath: &Path) -> String {
 }
 
 pub struct App<'a> {
-    pub title: &'a str,
     pub datadir: PathBuf,
-    pub user_feedback_text: String,
     feedback_stack: Vec<Feedback>,
     pub filelist: FileListWidget<'a>,
     pub file_request: Option<FileRequest>,
@@ -188,17 +186,15 @@ pub struct App<'a> {
 }
 
 impl<'a> App<'a> {
-    pub fn new(title: &'a str, datadir: PathBuf) -> App<'a> {
+    pub fn new(datadir: PathBuf) -> App<'a> {
         App {
-            title,
             datadir: datadir.clone(),
-            user_feedback_text: format!("Welcome to {title}."),
-            feedback_stack: vec![Feedback::new(&format!("Welcome to {title}."))],
+            feedback_stack: vec![Feedback::new(&format!("Welcome to Dev Journal"))],
             filelist: FileListWidget::new(datadir.to_string_lossy().to_string().as_str()),
             file_request: None,
             prompt: PromptWidget::default(),
             prompt_request: None,
-            filepath: datadir.join("new_project"),
+            filepath: datadir.join("new_journal"),
             journal: Default::default(),
         }
     }

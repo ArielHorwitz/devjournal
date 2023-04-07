@@ -24,7 +24,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
         .data_dir;
     fs::create_dir_all(&datadir)?;
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
-    let mut app_state = App::new("DevJournal", datadir);
+    let mut app_state = App::new(datadir);
     let mut last_tick = Instant::now();
     loop {
         terminal.draw(|frame| draw(frame, &app_state, false))?;
@@ -40,7 +40,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
             }
         };
         if last_tick.elapsed() >= tick_rate {
-            let title = format!("{} - {}", app_state.title, app_state.journal.name);
+            let title = format!("Dev Journal - {}", app_state.journal.name);
             crossterm::queue!(stdout(), SetTitle(title))?;
             last_tick = Instant::now();
         }
