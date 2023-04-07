@@ -33,7 +33,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.cause {
             None => write!(f, "{}", &self.message),
-            Some(cause) => write!(f, "{} [cause: ({})]", &self.message, cause),
+            Some(cause) => write!(f, "{} (cause: {})", &self.message, cause),
         }
     }
 }
@@ -213,10 +213,14 @@ impl<'a> App<'a> {
 
     pub fn feedback(&self) -> Option<&Feedback> {
         if let Some(feedback) = self.feedback_stack.get(0) {
-            if Instant::now() - feedback.instant <= Duration::from_millis(2000) {
+            let show_duration = match feedback.kind {
+                FeedbackKind::Nominal => 1250,
+                FeedbackKind::Error => 5000,
+            };
+            if Instant::now() - feedback.instant <= Duration::from_millis(show_duration) {
                 return Some(feedback);
             }
-        }
+        };
         None
     }
 

@@ -43,7 +43,7 @@ pub fn decrypt(ciphertext: &Vec<u8>, key: &str) -> Result<Vec<u8>> {
     let split_at = ciphertext.len().saturating_sub(NONCE_SIZE);
     (split_at > 0)
         .then_some(())
-        .ok_or(Error::from("file too small to decrypt"))?;
+        .ok_or(Error::from("corrupted file [too small]"))?;
     let (ciphertext, nonce_data) = ciphertext.split_at(split_at);
     let plaintext = cipher
         .decrypt(Nonce::from_slice(nonce_data), ciphertext)
