@@ -1,7 +1,7 @@
 use super::widgets::{files::FileListResult, prompt::PromptEvent};
 use crate::app::data::{
-    filename, App, AppPrompt, DataDeserialize, DataSerialize, Error, Feedback, FileRequest,
-    Journal, JournalPrompt, Project, Result, SubProject, Task, DEFAULT_WIDTH_PERCENT,
+    filename, App, AppPrompt, DataDeserialize, DataSerialize, Error, FileRequest, Journal,
+    JournalPrompt, Project, Result, SubProject, Task, DEFAULT_WIDTH_PERCENT,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{path::PathBuf, process::Command};
@@ -29,7 +29,7 @@ fn handle_global_event(key: KeyEvent, state: &mut App) -> bool {
         // Global operations
         (KeyCode::Char('o'), KeyModifiers::ALT) => {
             if let Err(e) = open_datadir(state) {
-                state.add_feedback(Feedback::from(e));
+                state.add_feedback(Error::from_cause("Failed to save file", e));
             };
         }
         (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
@@ -272,11 +272,10 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) {
         }
         (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
             return match save_state(state, None) {
-                Err(e) => state.add_feedback(Feedback::from(e)),
-                Ok(_) => state.add_feedback(Feedback::new(&format!(
-                    "Saved journal `{}`",
-                    filename(&state.filepath)
-                ))),
+                Err(e) => state.add_feedback(Error::from_cause("Failed to save file", e)),
+                Ok(_) => {
+                    state.add_feedback(format!("Saved journal `{}`", filename(&state.filepath)))
+                }
             };
         }
         // Other
@@ -337,32 +336,28 @@ fn handle_app_prompt_event(key: KeyEvent, state: &mut App) {
                     state.filepath = state.datadir.join(result_text);
                     match save_state(state, None) {
                         Err(e) => {
-                            state.add_feedback(Feedback::from(e));
+                            state.add_feedback(Error::from_cause("Failed to save file", e));
                         }
                         Ok(_) => {
                             if let Some(project) = state.journal.project() {
                                 reset_ui(project);
                             };
-                            state.add_feedback(Feedback::new(&format!(
+                            state.add_feedback(format!(
                                 "Created journal `{}`",
                                 filename(&state.filepath)
-                            )));
+                            ));
                         }
                     }
                 }
                 AppPrompt::LoadFile(name) => match load_state(state, &name, &result_text, false) {
-                    Err(e) => state.add_feedback(Feedback::from(e)),
-                    Ok(_) => state.add_feedback(Feedback::new(&format!(
-                        "Loaded journal `{}`",
-                        filename(&state.filepath)
-                    ))),
+                    Err(e) => state.add_feedback(Error::from_cause("Failed to load file", e)),
+                    Ok(_) => state
+                        .add_feedback(format!("Loaded journal `{}`", filename(&state.filepath))),
                 },
                 AppPrompt::MergeFile(name) => match load_state(state, &name, &result_text, true) {
-                    Err(e) => state.add_feedback(Feedback::from(e)),
-                    Ok(_) => state.add_feedback(Feedback::new(&format!(
-                        "Merged journal `{}`",
-                        filename(&state.filepath)
-                    ))),
+                    Err(e) => state.add_feedback(Error::from_cause("Failed to merge file", e)),
+                    Ok(_) => state
+                        .add_feedback(format!("Merged journal `{}`", filename(&state.filepath))),
                 },
             };
         }
@@ -398,16 +393,12 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) {
                         }
                         JournalPrompt::RenameJournal => {
                             state.journal.name = result_text;
-                            return state.add_feedback(Feedback::new(&format!(
-                                "Renamed journal: {}",
-                                state.journal.name
-                            )));
+                            return state
+                                .add_feedback(format!("Renamed journal: {}", state.journal.name));
                         }
                         JournalPrompt::RenameProject => {
                             project.name = result_text.clone();
-                            return state.add_feedback(Feedback::new(&format!(
-                                "Renamed project: {result_text}",
-                            )));
+                            return state.add_feedback(format!("Renamed project: {result_text}",));
                         }
                         JournalPrompt::RenameSubProject => {
                             if let Some(subproject) = project.subproject() {
@@ -423,7 +414,7 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) {
                         }
                         JournalPrompt::SetPassword => {
                             state.journal.password = result_text;
-                            state.add_feedback(Feedback::new("Set encryption password"));
+                            state.add_feedback("Set encryption password");
                         }
                     };
                 }
@@ -436,7 +427,7 @@ fn handle_filelist_event(key: KeyEvent, state: &mut App) {
     match state.filelist.handle_event(key) {
         FileListResult::AwaitingResult => (),
         FileListResult::Cancelled => state.file_request = None,
-        FileListResult::Feedback(message) => state.add_feedback(Feedback::new(&message)),
+        FileListResult::Feedback(message) => state.add_feedback(message),
         FileListResult::Result(name) => {
             if let Some(fr) = state.file_request {
                 state.file_request = None;
@@ -458,11 +449,11 @@ fn handle_filelist_event(key: KeyEvent, state: &mut App) {
                     FileRequest::Save => {
                         let filepath = state.datadir.join(name);
                         return match save_state(state, Some(&filepath)) {
-                            Err(e) => state.add_feedback(Feedback::from(e)),
-                            Ok(_) => state.add_feedback(Feedback::new(&format!(
-                                "Saved journal `{}`",
-                                filename(&filepath)
-                            ))),
+                            Err(e) => {
+                                state.add_feedback(Error::from_cause("Failed to save file", e))
+                            }
+                            Ok(_) => state
+                                .add_feedback(format!("Saved journal `{}`", filename(&filepath))),
                         };
                     }
                 }

@@ -157,10 +157,22 @@ impl Feedback {
     }
 }
 
+impl From<String> for Feedback {
+    fn from(value: String) -> Self {
+        Self::new(&value)
+    }
+}
+
+impl From<&str> for Feedback {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+
 impl From<Error> for Feedback {
     fn from(value: Error) -> Self {
         Self {
-            message: value.message,
+            message: value.to_string(),
             kind: FeedbackKind::Error,
             instant: Instant::now(),
         }
@@ -189,7 +201,7 @@ impl<'a> App<'a> {
     pub fn new(datadir: PathBuf) -> App<'a> {
         App {
             datadir: datadir.clone(),
-            feedback_stack: vec![Feedback::new(&format!("Welcome to Dev Journal"))],
+            feedback_stack: vec![Feedback::new("Welcome to Dev Journal")],
             filelist: FileListWidget::new(datadir.to_string_lossy().to_string().as_str()),
             file_request: None,
             prompt: PromptWidget::default(),
@@ -208,8 +220,11 @@ impl<'a> App<'a> {
         None
     }
 
-    pub fn add_feedback(&mut self, feedback: Feedback) {
-        self.feedback_stack.insert(0, feedback);
+    pub fn add_feedback<F>(&mut self, feedback: F)
+    where
+        F: Into<Feedback>,
+    {
+        self.feedback_stack.insert(0, feedback.into());
     }
 }
 
