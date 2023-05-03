@@ -18,13 +18,19 @@ use tui::{backend::Backend, Terminal};
 
 const TICK_RATE_MS: u64 = 25;
 
-pub fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
+pub fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    target_name: Option<String>,
+) -> io::Result<()> {
     let datadir = AppDirs::new(Some("devjournal"), false)
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to create user folder"))?
         .data_dir;
     fs::create_dir_all(&datadir)?;
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
     let mut app_state = App::new(datadir);
+    if let Some(name) = target_name {
+        events::try_load_file(&mut app_state, name.as_str());
+    }
     let mut last_tick = Instant::now();
     loop {
         terminal.draw(|frame| draw(frame, &app_state, false))?;

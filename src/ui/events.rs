@@ -533,3 +533,15 @@ fn load_state(state: &mut App, name: &str, key: &str, merge: bool) -> Result<()>
     state.filelist.reset();
     Ok(())
 }
+
+pub fn try_load_file(state: &mut App, name: &str) {
+    if load_state(state, name, "", false).is_err() {
+        set_app_prompt(
+            state,
+            AppPrompt::LoadFile(name.to_owned()),
+            &format!("Password for `{name}`:"),
+            "",
+            true,
+        );
+    }
+}
