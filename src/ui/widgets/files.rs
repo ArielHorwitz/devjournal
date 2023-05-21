@@ -151,8 +151,8 @@ impl<'a> FileListWidget<'a> {
                 self.set_focus(Focus::Prompt);
                 return FileListResult::AwaitingResult;
             }
-            (KeyCode::Char('j'), KeyModifiers::NONE) => self.filelist.select_next(),
-            (KeyCode::Char('k'), KeyModifiers::NONE) => self.filelist.select_prev(),
+            (KeyCode::Down, KeyModifiers::NONE) => self.filelist.select_next(),
+            (KeyCode::Up, KeyModifiers::NONE) => self.filelist.select_prev(),
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
                 if let Some(name) = self.filelist.pop_selected() {
                     remove_file(PathBuf::from(&self.datadir).join(&name))

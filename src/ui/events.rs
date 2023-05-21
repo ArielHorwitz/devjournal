@@ -163,24 +163,24 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) {
         (KeyCode::PageUp, KeyModifiers::CONTROL) => {
             state.journal.projects.select_prev();
         }
-        (KeyCode::Char('l'), KeyModifiers::NONE) => {
+        (KeyCode::Right, KeyModifiers::NONE) => {
             if let Some(project) = state.journal.project() {
                 project.subprojects.select_next();
             }
         }
-        (KeyCode::Char('h'), KeyModifiers::NONE) => {
+        (KeyCode::Left, KeyModifiers::NONE) => {
             if let Some(project) = state.journal.project() {
                 project.subprojects.select_prev();
             }
         }
-        (KeyCode::Char('j'), KeyModifiers::NONE) => {
+        (KeyCode::Down, KeyModifiers::NONE) => {
             if let Some(project) = state.journal.project() {
                 if let Some(subproject) = project.subproject() {
                     subproject.tasks.select_next();
                 }
             }
         }
-        (KeyCode::Char('k'), KeyModifiers::NONE) => {
+        (KeyCode::Up, KeyModifiers::NONE) => {
             if let Some(project) = state.journal.project() {
                 if let Some(subproject) = project.subproject() {
                     subproject.tasks.select_prev();
@@ -194,24 +194,24 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) {
         (KeyCode::PageUp, KeyModifiers::ALT) => {
             state.journal.projects.shift_prev().ok();
         }
-        (KeyCode::Char('L'), KeyModifiers::SHIFT) => {
+        (KeyCode::Right, KeyModifiers::SHIFT) => {
             if let Some(project) = state.journal.project() {
                 project.subprojects.shift_next().ok();
             }
         }
-        (KeyCode::Char('H'), KeyModifiers::SHIFT) => {
+        (KeyCode::Left, KeyModifiers::SHIFT) => {
             if let Some(project) = state.journal.project() {
                 project.subprojects.shift_prev().ok();
             }
         }
-        (KeyCode::Char('j'), KeyModifiers::CONTROL) => {
+        (KeyCode::Down, KeyModifiers::CONTROL) => {
             if let Some(project) = state.journal.project() {
                 if let Some(subproject) = project.subproject() {
                     subproject.tasks.shift_next().ok();
                 }
             }
         }
-        (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
+        (KeyCode::Up, KeyModifiers::CONTROL) => {
             if let Some(project) = state.journal.project() {
                 if let Some(subproject) = project.subproject() {
                     subproject.tasks.shift_prev().ok();
@@ -219,8 +219,8 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) {
             }
         }
         // Move
-        (KeyCode::Char('l'), KeyModifiers::CONTROL) => move_task(state, false),
-        (KeyCode::Char('h'), KeyModifiers::CONTROL) => move_task(state, true),
+        (KeyCode::Right, KeyModifiers::CONTROL) => move_task(state, false),
+        (KeyCode::Left, KeyModifiers::CONTROL) => move_task(state, true),
         // UI
         (KeyCode::Char('='), KeyModifiers::NONE) => {
             if let Some(project) = state.journal.project() {
