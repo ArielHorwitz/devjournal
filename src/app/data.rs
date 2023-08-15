@@ -2,35 +2,31 @@ use super::list::SelectionList;
 use crate::crypto::{decrypt, encrypt};
 use crate::ui::widgets::{files::FileListWidget, prompt::PromptWidget};
 use anyhow::Result;
+use geckopanda::prelude::Storage;
 use serde::{self, Deserialize, Serialize};
+use std::fmt;
 use std::ops::Add;
-use std::path::Path;
 use std::time::{Duration, Instant};
-use std::{fmt, fs, path::PathBuf};
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
 
-pub trait DataSerialize<T>
+pub trait SerializeEncrypt<T>
 where
     Self: Serialize,
 {
-    fn save_encrypt(&self, filepath: &PathBuf, key: &str) -> Result<()> {
+    fn encrypt(&self, key: &str) -> Result<Vec<u8>> {
         let encoded = bincode::serialize(&self)?;
-        let encrypted = encrypt(&encoded, key)?;
-        fs::write(filepath, encrypted)?;
-        Ok(())
+        encrypt(&encoded, key)
     }
 }
 
-pub trait DataDeserialize<T>
+pub trait DeserializeDecrypt<T>
 where
     T: for<'a> Deserialize<'a>,
 {
-    fn load_decrypt(filepath: &PathBuf, key: &str) -> Result<T> {
-        let encrypted = fs::read(filepath)?;
-        let decrypted = decrypt(&encrypted, key)?;
-        let decoded = bincode::deserialize::<T>(decrypted.as_slice())?;
-        Ok(decoded)
+    fn decrypt(data: &[u8], key: &str) -> Result<T> {
+        let decrypted = decrypt(data, key)?;
+        Ok(bincode::deserialize::<T>(&decrypted)?)
     }
 }
 
@@ -103,40 +99,33 @@ impl From<&str> for Feedback {
     }
 }
 
-pub fn filename(filepath: &Path) -> String {
-    filepath
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or("/missing_filename/".into())
-}
-
 pub struct App<'a> {
-    pub datadir: PathBuf,
+    pub storage: &'a dyn Storage,
     feedback_stack: Vec<Feedback>,
     pub filelist: FileListWidget<'a>,
     pub file_request: Option<FileRequest>,
     pub prompt: PromptWidget<'a>,
     pub prompt_request: Option<AppPrompt>,
-    pub filepath: PathBuf,
+    pub filename: String,
     pub journal: Journal<'a>,
 }
 
 impl<'a> App<'a> {
-    pub fn new(datadir: PathBuf) -> App<'a> {
+    pub fn new(storage: &'a dyn Storage) -> App<'a> {
         App {
-            datadir: datadir.clone(),
+            storage,
             feedback_stack: vec![Feedback::new("Welcome to Dev Journal")],
-            filelist: FileListWidget::new(datadir.to_string_lossy().to_string().as_str()),
+            filelist: FileListWidget::new(storage),
             file_request: None,
             prompt: PromptWidget::default(),
             prompt_request: None,
-            filepath: datadir.join("new_journal"),
+            filename: "new_journal".to_owned(),
             journal: Default::default(),
         }
     }
 
     pub fn feedback(&self) -> Option<&Feedback> {
-        if let Some(feedback) = self.feedback_stack.get(0) {
+        if let Some(feedback) = self.feedback_stack.first() {
             let show_duration = match feedback.kind {
                 FeedbackKind::Nominal => 1250,
                 FeedbackKind::Error => 5000,
@@ -188,9 +177,9 @@ impl<'a> Default for Journal<'a> {
     }
 }
 
-impl<'a> DataSerialize<Journal<'a>> for Journal<'a> {}
+impl<'a> SerializeEncrypt<Journal<'a>> for Journal<'a> {}
 
-impl<'a> DataDeserialize<Journal<'a>> for Journal<'a> {}
+impl<'a> DeserializeDecrypt<Journal<'a>> for Journal<'a> {}
 
 impl<'a> From<Project<'a>> for Journal<'a> {
     fn from(project: Project<'a>) -> Self {
@@ -282,9 +271,9 @@ impl<'a> Add<Project<'a>> for Project<'a> {
     }
 }
 
-impl<'a> DataSerialize<Project<'a>> for Project<'a> {}
+impl<'a> SerializeEncrypt<Project<'a>> for Project<'a> {}
 
-impl<'a> DataDeserialize<Project<'a>> for Project<'a> {}
+impl<'a> DeserializeDecrypt<Project<'a>> for Project<'a> {}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SubProject {

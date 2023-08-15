@@ -1,4 +1,4 @@
-use crate::app::data::{filename, App, FeedbackKind, Project};
+use crate::app::data::{App, FeedbackKind, Project};
 pub mod events;
 mod styles;
 pub mod widgets;
@@ -20,7 +20,7 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &App, debug: bool) {
             Constraint::Length(1),
         ])
         .split(frame.size());
-    let chunk0 = *chunks.get(0).expect("missing chunk");
+    let chunk0 = *chunks.first().expect("missing chunk");
     let chunk1 = *chunks.get(1).expect("missing chunk");
     let chunk2 = *chunks.get(2).expect("missing chunk");
     draw_tab_bar(frame, state, chunk0);
@@ -90,11 +90,11 @@ fn draw_status_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
         }
     };
     let spans = Spans::from(vec![
-        Span::styled(format!("`{}`", filename(&state.filepath)), styles::text()),
+        Span::styled(format!("`{}`", state.filename), styles::text()),
         Span::styled(format!(" [{journal_path}]"), styles::text_dim()),
     ]);
     let status_filename = Paragraph::new(spans).alignment(tui::layout::Alignment::Left);
-    frame.render_widget(status_filename, *chunks.get(0).expect("missing chunk"));
+    frame.render_widget(status_filename, *chunks.first().expect("missing chunk"));
     let status_terminal = Paragraph::new(Span::styled(
         format!("{}×{}", frame.size().width, frame.size().height),
         styles::text_dim(),
@@ -170,7 +170,7 @@ where
             Constraint::Ratio(1, 3),
             Constraint::Ratio(1, 3),
         ]);
-    frame.render_widget(table, *chunks.get(0).expect("missing chunk"));
+    frame.render_widget(table, *chunks.first().expect("missing chunk"));
 }
 
 fn draw_project<B: Backend>(frame: &mut Frame<B>, project: &Project, rect: Rect) {

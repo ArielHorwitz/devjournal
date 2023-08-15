@@ -77,7 +77,7 @@ impl<'a> PromptWidget<'a> {
     pub fn get_text(&mut self) -> String {
         self.textarea
             .lines()
-            .get(0)
+            .first()
             .unwrap_or(&String::from(""))
             .to_owned()
     }

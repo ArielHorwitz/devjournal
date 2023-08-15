@@ -8,6 +8,7 @@ use crossterm::{
     terminal::SetTitle,
 };
 use data::App;
+use geckopanda::prelude::Storage;
 use platform_dirs::AppDirs;
 use std::{
     fs,
@@ -20,14 +21,15 @@ const TICK_RATE_MS: u64 = 25;
 
 pub fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
+    storage: &dyn Storage,
     target_name: Option<String>,
 ) -> io::Result<()> {
     let datadir = AppDirs::new(Some("devjournal"), false)
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to create user folder"))?
         .data_dir;
-    fs::create_dir_all(&datadir)?;
+    fs::create_dir_all(datadir)?;
     let tick_rate = Duration::from_millis(TICK_RATE_MS);
-    let mut app_state = App::new(datadir);
+    let mut app_state = App::new(storage);
     if let Some(name) = target_name {
         events::try_load_file(&mut app_state, name.as_str());
     }

@@ -1,10 +1,7 @@
 use super::{list::ListWidget, prompt::PromptWidget};
 use crate::{app::list::SelectionList, ui::styles};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::{
-    fs::{self, read_dir, remove_file},
-    path::PathBuf,
-};
+use geckopanda::prelude::Storage;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -28,7 +25,7 @@ enum Focus {
 
 pub struct FileListWidget<'a> {
     prompt: PromptWidget<'a>,
-    datadir: String,
+    storage: &'a dyn Storage,
     filelist: SelectionList<String>,
     focus: Focus,
     title: String,
@@ -37,10 +34,10 @@ pub struct FileListWidget<'a> {
 }
 
 impl<'a> FileListWidget<'a> {
-    pub fn new(datadir: &str) -> FileListWidget<'a> {
+    pub fn new(storage: &'a dyn Storage) -> FileListWidget<'a> {
         let mut widget = FileListWidget {
             prompt: PromptWidget::default().focus(false).margin(0),
-            datadir: datadir.to_owned(),
+            storage,
             filelist: SelectionList::default(),
             focus: Focus::FileList,
             title: "Files".to_owned(),
@@ -58,31 +55,11 @@ impl<'a> FileListWidget<'a> {
 
     pub fn reset(&mut self) {
         self.set_focus(Focus::FileList);
-        self.refresh_filelist();
-    }
-
-    fn refresh_filelist(&mut self) {
-        let mut entries: Vec<PathBuf> = read_dir(&self.datadir)
-            .expect("cannot read directory")
-            .map(|res| res.expect("cannot read file").path())
-            .filter(|x| x.is_file() && !x.ends_with(".config"))
-            .collect();
-        entries.sort_by_key(|file| {
-            fs::metadata(file)
-                .expect("cannot read metadata")
-                .modified()
-                .expect("cannot read system time")
-                .elapsed()
-                .expect("cannot file age")
-        });
         self.filelist.clear_items();
-        for file in entries {
-            self.filelist.push_item(
-                file.file_name()
-                    .expect("cannot get file name")
-                    .to_string_lossy()
-                    .to_string(),
-            );
+        let mut files = self.storage.list_blocking().expect("failed to list files");
+        files.sort_by_key(|metadata| metadata.last_modified.clone());
+        for file in files.iter() {
+            self.filelist.push_item(file.name.clone());
         }
     }
 
@@ -107,7 +84,7 @@ impl<'a> FileListWidget<'a> {
                     .border_style(self.style_border),
             )
             .focus(matches!(&self.focus, Focus::FileList));
-        f.render_widget(file_list, *chunks.get(0).expect("missing chunk"));
+        f.render_widget(file_list, *chunks.first().expect("missing chunk"));
         self.prompt.draw(f, *chunks.get(1).expect("missing chunk"));
     }
 
@@ -155,8 +132,10 @@ impl<'a> FileListWidget<'a> {
             (KeyCode::Up, KeyModifiers::NONE) => self.filelist.select_prev(),
             (KeyCode::Char('d'), KeyModifiers::NONE) => {
                 if let Some(name) = self.filelist.pop_selected() {
-                    remove_file(PathBuf::from(&self.datadir).join(&name))
-                        .expect("failed to remove file");
+                    if let Err(e) = self.storage.delete_blocking(name.as_str()) {
+                        self.filelist.push_item(name);
+                        return FileListResult::Feedback(format!("failed to remove file: {e}"));
+                    };
                     self.reset();
                     return FileListResult::Feedback(format!("Deleted project file: {name}"));
                 }

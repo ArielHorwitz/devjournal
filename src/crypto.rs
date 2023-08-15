@@ -15,17 +15,17 @@ fn get_cipher(key: &str) -> Result<Aes256Gcm> {
     Ok(cipher)
 }
 
-pub fn encrypt(plaintext: &Vec<u8>, key: &str) -> Result<Vec<u8>> {
+pub fn encrypt(plaintext: &[u8], key: &str) -> Result<Vec<u8>> {
     let cipher = get_cipher(key)?;
     let nonce_data: [u8; NONCE_SIZE] = thread_rng().gen();
     let mut ciphertext = cipher
-        .encrypt(Nonce::from_slice(&nonce_data), plaintext.as_slice())
+        .encrypt(Nonce::from_slice(&nonce_data), plaintext)
         .map_err(|e| anyhow!("encryption failure: {e}"))?;
     ciphertext.extend_from_slice(&nonce_data);
     Ok(ciphertext)
 }
 
-pub fn decrypt(ciphertext: &Vec<u8>, key: &str) -> Result<Vec<u8>> {
+pub fn decrypt(ciphertext: &[u8], key: &str) -> Result<Vec<u8>> {
     let cipher = get_cipher(key)?;
     let split_at = ciphertext.len().saturating_sub(NONCE_SIZE);
     (split_at > 0)

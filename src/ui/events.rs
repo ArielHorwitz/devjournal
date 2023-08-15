@@ -1,11 +1,10 @@
 use super::widgets::{files::FileListResult, prompt::PromptEvent};
 use crate::app::data::{
-    filename, App, AppPrompt, DataDeserialize, DataSerialize, FileRequest, Journal, JournalPrompt,
-    Project, SubProject, Task, DEFAULT_WIDTH_PERCENT,
+    App, AppPrompt, DeserializeDecrypt, FileRequest, Journal, JournalPrompt, Project,
+    SerializeEncrypt, SubProject, Task, DEFAULT_WIDTH_PERCENT,
 };
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::{path::PathBuf, process::Command};
 
 pub fn handle_event(key: KeyEvent, state: &mut App) {
     if !handle_global_event(key, state) {
@@ -28,11 +27,6 @@ pub fn handle_event(key: KeyEvent, state: &mut App) {
 fn handle_global_event(key: KeyEvent, state: &mut App) -> bool {
     match (key.code, key.modifiers) {
         // Global operations
-        (KeyCode::Char('o'), KeyModifiers::ALT) => {
-            if let Err(e) = open_datadir(state) {
-                state.add_feedback(format!("Failed to save file: {e}"));
-            };
-        }
         (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
             set_app_prompt(state, AppPrompt::NewJournal, "New file name:", "", false);
         }
@@ -273,7 +267,7 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) {
         }
         (KeyCode::Char('s'), KeyModifiers::CONTROL) => match save_state(state, None) {
             Err(e) => state.add_feedback(format!("Failed to save file: {e}")),
-            Ok(_) => state.add_feedback(format!("Saved journal `{}`", filename(&state.filepath))),
+            Ok(_) => state.add_feedback(format!("Saved journal `{}`", state.filename)),
         },
         // Other
         (KeyCode::Char(c), _) => {
@@ -330,7 +324,7 @@ fn handle_app_prompt_event(key: KeyEvent, state: &mut App) {
             match request {
                 AppPrompt::NewJournal => {
                     state.journal = Journal::new(&result_text);
-                    state.filepath = state.datadir.join(result_text);
+                    state.filename = result_text;
                     match save_state(state, None) {
                         Err(e) => {
                             state.add_feedback(format!("Failed to save file: {e}"));
@@ -339,22 +333,17 @@ fn handle_app_prompt_event(key: KeyEvent, state: &mut App) {
                             if let Some(project) = state.journal.project() {
                                 reset_ui(project);
                             };
-                            state.add_feedback(format!(
-                                "Created journal `{}`",
-                                filename(&state.filepath)
-                            ));
+                            state.add_feedback(format!("Created journal `{}`", state.filename,));
                         }
                     }
                 }
                 AppPrompt::LoadFile(name) => match load_state(state, &name, &result_text, false) {
                     Err(e) => state.add_feedback(format!("Failed to load file: {e}")),
-                    Ok(_) => state
-                        .add_feedback(format!("Loaded journal `{}`", filename(&state.filepath))),
+                    Ok(_) => state.add_feedback(format!("Loaded journal `{}`", state.filename)),
                 },
                 AppPrompt::MergeFile(name) => match load_state(state, &name, &result_text, true) {
                     Err(e) => state.add_feedback(format!("Failed to merge file: {e}")),
-                    Ok(_) => state
-                        .add_feedback(format!("Merged journal `{}`", filename(&state.filepath))),
+                    Ok(_) => state.add_feedback(format!("Merged journal `{}`", state.filename)),
                 },
             };
         }
@@ -442,14 +431,10 @@ fn handle_filelist_event(key: KeyEvent, state: &mut App) {
                         "",
                         true,
                     ),
-                    FileRequest::Save => {
-                        let filepath = state.datadir.join(name);
-                        match save_state(state, Some(&filepath)) {
-                            Err(e) => state.add_feedback(format!("Failed to save file: {e}")),
-                            Ok(_) => state
-                                .add_feedback(format!("Saved journal `{}`", filename(&filepath))),
-                        }
-                    }
+                    FileRequest::Save => match save_state(state, Some(&name)) {
+                        Err(e) => state.add_feedback(format!("Failed to save file: {e}")),
+                        Ok(_) => state.add_feedback(format!("Saved journal `{}`", name)),
+                    },
                 }
             }
         }
@@ -492,35 +477,30 @@ fn bind_focus_size(project: &mut Project) {
     project.focused_width_percent = project.focused_width_percent.min(95).max(min_width);
 }
 
-fn open_datadir(state: &App) -> Result<()> {
-    Command::new("xdg-open").arg(&state.datadir).spawn()?;
-    Ok(())
-}
-
-fn save_state(state: &mut App, filepath: Option<&PathBuf>) -> Result<()> {
-    let filepath = filepath.unwrap_or(&state.filepath);
-    state
-        .journal
-        .save_encrypt(filepath, &state.journal.password)?;
-    state.filepath = filepath.clone();
+fn save_state(state: &mut App, name: Option<&str>) -> Result<()> {
+    let name = name.unwrap_or(&state.filename);
+    let encrypted = state.journal.encrypt(&state.journal.password)?;
+    state.storage.update_blocking(name, &encrypted)?;
+    state.filename = name.to_owned();
     state.filelist.reset();
     Ok(())
 }
 
 fn load_state(state: &mut App, name: &str, key: &str, merge: bool) -> Result<()> {
-    let filepath = state.datadir.join(name);
-    if !filepath.exists() {
-        Journal::new(name)
-            .save_encrypt(&filepath, key)
-            .map_err(|e| anyhow!("failed to create new file [{e}]"))?;
-    }
-    let loaded_journal = Journal::load_decrypt(&filepath, key)?;
+    let encrypted = match state.storage.get_blocking(name) {
+        Err(_) => {
+            let new_journal = Journal::new(name);
+            new_journal.encrypt(key)?
+        }
+        Ok(data) => data,
+    };
+    let loaded_journal = Journal::decrypt(&encrypted, key)?;
     state.journal = match merge {
         true => state.journal.clone() + loaded_journal,
         false => loaded_journal,
     };
     state.journal.password = key.to_owned();
-    state.filepath = filepath;
+    state.filename = name.to_owned();
     state.filelist.reset();
     Ok(())
 }
