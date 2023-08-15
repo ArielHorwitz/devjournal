@@ -1,4 +1,4 @@
-use crate::app::data::{Error, Result};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, ops::Add, slice::Iter};
 
@@ -106,7 +106,7 @@ impl<T> SelectionList<T> {
 
     pub fn select(&mut self, index: usize) -> Result<()> {
         if index >= self.items.len() {
-            return Err(Error::from("index out of range"));
+            return Err(anyhow!("index out of range"));
         };
         self.selection = Some(index);
         Ok(())
@@ -158,15 +158,16 @@ impl<T> SelectionList<T> {
                 self.selection = Some(new_index);
                 Ok(new_index)
             } else {
-                let element = self.items.pop().ok_or(Error::from(
-                    "selection is Some, should have at least one item",
-                ))?;
+                let element = self
+                    .items
+                    .pop()
+                    .ok_or(anyhow!("selection is Some, should have at least one item",))?;
                 self.items.insert(0, element);
                 self.selection = Some(0);
                 Ok(0)
             }
         } else {
-            Err(Error::from("no item selected"))
+            Err(anyhow!("no item selected"))
         }
     }
 
@@ -184,7 +185,7 @@ impl<T> SelectionList<T> {
                 Ok(self.items.len() - 1)
             }
         } else {
-            Err(Error::from("no item selected"))
+            Err(anyhow!("no item selected"))
         }
     }
 

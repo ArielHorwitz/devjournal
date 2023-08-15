@@ -13,3 +13,4 @@ platform-dirs = "0.3.0"
 aes-gcm = "0.10.1"
 rand = "0.8.5"
 clap = { version = "4.1.6", features = ["derive"] }
+anyhow = "1.0.73"

@@ -1,90 +1,14 @@
 use super::list::SelectionList;
 use crate::crypto::{decrypt, encrypt};
 use crate::ui::widgets::{files::FileListWidget, prompt::PromptWidget};
+use anyhow::Result;
 use serde::{self, Deserialize, Serialize};
-use std::fmt::Display;
 use std::ops::Add;
 use std::path::Path;
 use std::time::{Duration, Instant};
 use std::{fmt, fs, path::PathBuf};
 
 pub const DEFAULT_WIDTH_PERCENT: u16 = 40;
-
-pub type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Debug)]
-pub struct Error {
-    message: String,
-    cause: Option<Box<Error>>,
-}
-
-impl std::error::Error for Error {}
-
-impl Error {
-    pub fn from_cause(message: &str, cause: Error) -> Self {
-        Self {
-            message: message.to_owned(),
-            cause: Some(Box::new(cause)),
-        }
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.cause {
-            None => write!(f, "{}", &self.message),
-            Some(cause) => write!(f, "{} (cause: {})", &self.message, cause),
-        }
-    }
-}
-
-impl From<String> for Error {
-    fn from(value: String) -> Self {
-        Self {
-            message: value,
-            cause: None,
-        }
-    }
-}
-
-impl From<&str> for Error {
-    fn from(value: &str) -> Self {
-        Self {
-            message: value.to_owned(),
-            cause: None,
-        }
-    }
-}
-
-impl From<Error> for String {
-    fn from(value: Error) -> Self {
-        value.message
-    }
-}
-
-impl<T> From<Error> for Result<T> {
-    fn from(value: Error) -> Result<T> {
-        Err(value)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(value: std::io::Error) -> Self {
-        Self {
-            message: value.to_string(),
-            cause: Some(Box::new(Error::from(value.to_string()))),
-        }
-    }
-}
-
-impl From<Box<bincode::ErrorKind>> for Error {
-    fn from(value: Box<bincode::ErrorKind>) -> Self {
-        Self {
-            message: value.to_string(),
-            cause: Some(Box::new(Error::from(value.to_string()))),
-        }
-    }
-}
 
 pub trait DataSerialize<T>
 where
@@ -157,6 +81,16 @@ impl Feedback {
     }
 }
 
+impl From<Box<dyn std::error::Error>> for Feedback {
+    fn from(value: Box<dyn std::error::Error>) -> Self {
+        Self {
+            message: value.to_string(),
+            kind: FeedbackKind::Error,
+            instant: Instant::now(),
+        }
+    }
+}
+
 impl From<String> for Feedback {
     fn from(value: String) -> Self {
         Self::new(&value)
@@ -166,16 +100,6 @@ impl From<String> for Feedback {
 impl From<&str> for Feedback {
     fn from(value: &str) -> Self {
         Self::new(value)
-    }
-}
-
-impl From<Error> for Feedback {
-    fn from(value: Error) -> Self {
-        Self {
-            message: value.to_string(),
-            kind: FeedbackKind::Error,
-            instant: Instant::now(),
-        }
     }
 }
 
