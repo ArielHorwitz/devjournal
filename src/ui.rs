@@ -20,23 +20,24 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &App, debug: bool) {
             Constraint::Length(1),
         ])
         .split(frame.size());
-    draw_tab_bar(frame, state, chunks[0]);
+    let chunk0 = *chunks.get(0).expect("missing chunk");
+    let chunk1 = *chunks.get(1).expect("missing chunk");
+    let chunk2 = *chunks.get(2).expect("missing chunk");
+    draw_tab_bar(frame, state, chunk0);
     if debug {
-        draw_debug_tab(frame, state, chunks[1]);
+        draw_debug_tab(frame, state, chunk1);
     } else {
         if let Some(project) = state.journal.projects.selected() {
-            draw_project(frame, project, chunks[1]);
+            draw_project(frame, project, chunk1);
         }
         if state.file_request.is_some() {
-            state
-                .filelist
-                .draw(frame, center_rect(40, 20, chunks[1], 1));
+            state.filelist.draw(frame, center_rect(40, 20, chunk1, 1));
         }
     };
     if state.prompt_request.is_some() {
-        state.prompt.draw(frame, chunks[1]);
+        state.prompt.draw(frame, chunk1);
     }
-    draw_status_bar(frame, state, chunks[2]);
+    draw_status_bar(frame, state, chunk2);
 }
 
 fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
@@ -59,7 +60,7 @@ fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
     };
     frame.render_widget(
         Paragraph::new(Span::styled(title_text, title_style)),
-        chunks[1],
+        *chunks.get(1).expect("missing chunk"),
     );
     let titles = state
         .journal
@@ -73,7 +74,7 @@ fn draw_tab_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
     if let Some(selected) = state.journal.projects.selection() {
         tabs = tabs.select(selected).highlight_style(styles::tab());
     }
-    frame.render_widget(tabs, chunks[2]);
+    frame.render_widget(tabs, *chunks.get(2).expect("missing chunk"));
 }
 
 fn draw_status_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
@@ -93,13 +94,13 @@ fn draw_status_bar<B: Backend>(frame: &mut Frame<B>, state: &App, chunk: Rect) {
         Span::styled(format!(" [{journal_path}]"), styles::text_dim()),
     ]);
     let status_filename = Paragraph::new(spans).alignment(tui::layout::Alignment::Left);
-    frame.render_widget(status_filename, chunks[0]);
+    frame.render_widget(status_filename, *chunks.get(0).expect("missing chunk"));
     let status_terminal = Paragraph::new(Span::styled(
         format!("{}×{}", frame.size().width, frame.size().height),
         styles::text_dim(),
     ))
     .alignment(tui::layout::Alignment::Right);
-    frame.render_widget(status_terminal, chunks[1]);
+    frame.render_widget(status_terminal, *chunks.get(1).expect("missing chunk"));
     if let Some(feedback) = state.feedback() {
         let style = match feedback.kind {
             FeedbackKind::Nominal => styles::text_good(),
@@ -169,7 +170,7 @@ where
             Constraint::Ratio(1, 3),
             Constraint::Ratio(1, 3),
         ]);
-    frame.render_widget(table, chunks[0]);
+    frame.render_widget(table, *chunks.get(0).expect("missing chunk"));
 }
 
 fn draw_project<B: Backend>(frame: &mut Frame<B>, project: &Project, rect: Rect) {
@@ -222,6 +223,6 @@ fn draw_subprojects<B: Backend>(frame: &mut Frame<B>, project: &Project, rect: R
                     .border_style(border_style),
             )
             .focus(focus);
-        frame.render_widget(widget, chunks[index]);
+        frame.render_widget(widget, *chunks.get(index).expect("missing chunk"));
     }
 }

@@ -107,8 +107,8 @@ impl<'a> FileListWidget<'a> {
                     .border_style(self.style_border),
             )
             .focus(matches!(&self.focus, Focus::FileList));
-        f.render_widget(file_list, chunks[0]);
-        self.prompt.draw(f, chunks[1]);
+        f.render_widget(file_list, *chunks.get(0).expect("missing chunk"));
+        self.prompt.draw(f, *chunks.get(1).expect("missing chunk"));
     }
 
     pub fn handle_event(&mut self, key: KeyEvent) -> FileListResult {

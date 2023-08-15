@@ -37,12 +37,9 @@ impl<T> SelectionList<T> {
 
     pub fn get_item(&self, index: Option<usize>) -> Option<&T> {
         match index {
-            Some(i) => match i < self.items.len() {
-                true => Some(&self.items[i]),
-                false => None,
-            },
+            Some(i) => self.items.get(i),
             None => match self.selection {
-                Some(i) => Some(&self.items[i]),
+                Some(i) => self.items.get(i),
                 None => None,
             },
         }
@@ -50,12 +47,9 @@ impl<T> SelectionList<T> {
 
     pub fn get_item_mut(&mut self, index: Option<usize>) -> Option<&mut T> {
         match index {
-            Some(i) => match i < self.items.len() {
-                true => Some(&mut self.items[i]),
-                false => None,
-            },
+            Some(i) => self.items.get_mut(i),
             None => match self.selection {
-                Some(i) => Some(&mut self.items[i]),
+                Some(i) => self.items.get_mut(i),
                 None => None,
             },
         }

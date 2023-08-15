@@ -75,7 +75,11 @@ impl<'a> PromptWidget<'a> {
     }
 
     pub fn get_text(&mut self) -> String {
-        self.textarea.lines()[0].to_owned()
+        self.textarea
+            .lines()
+            .get(0)
+            .unwrap_or(&String::from(""))
+            .to_owned()
     }
 
     pub fn set_text(&mut self, text: &str) {

@@ -270,14 +270,10 @@ fn handle_journal_event(key: KeyEvent, state: &mut App) {
             state.filelist.set_title_text("Save Journal:");
             state.filelist.set_prompt_text("Save File As:");
         }
-        (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
-            return match save_state(state, None) {
-                Err(e) => state.add_feedback(Error::from_cause("Failed to save file", e)),
-                Ok(_) => {
-                    state.add_feedback(format!("Saved journal `{}`", filename(&state.filepath)))
-                }
-            };
-        }
+        (KeyCode::Char('s'), KeyModifiers::CONTROL) => match save_state(state, None) {
+            Err(e) => state.add_feedback(Error::from_cause("Failed to save file", e)),
+            Ok(_) => state.add_feedback(format!("Saved journal `{}`", filename(&state.filepath))),
+        },
         // Other
         (KeyCode::Char(c), _) => {
             // Navigation (project by number key)
@@ -393,12 +389,11 @@ fn handle_journal_prompt_event(key: KeyEvent, state: &mut App) {
                         }
                         JournalPrompt::RenameJournal => {
                             state.journal.name = result_text;
-                            return state
-                                .add_feedback(format!("Renamed journal: {}", state.journal.name));
+                            state.add_feedback(format!("Renamed journal: {}", state.journal.name))
                         }
                         JournalPrompt::RenameProject => {
                             project.name = result_text.clone();
-                            return state.add_feedback(format!("Renamed project: {result_text}",));
+                            state.add_feedback(format!("Renamed project: {result_text}",));
                         }
                         JournalPrompt::RenameSubProject => {
                             if let Some(subproject) = project.subproject() {
@@ -448,13 +443,13 @@ fn handle_filelist_event(key: KeyEvent, state: &mut App) {
                     ),
                     FileRequest::Save => {
                         let filepath = state.datadir.join(name);
-                        return match save_state(state, Some(&filepath)) {
+                        match save_state(state, Some(&filepath)) {
                             Err(e) => {
                                 state.add_feedback(Error::from_cause("Failed to save file", e))
                             }
                             Ok(_) => state
                                 .add_feedback(format!("Saved journal `{}`", filename(&filepath))),
-                        };
+                        }
                     }
                 }
             }
