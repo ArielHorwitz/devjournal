@@ -14,3 +14,4 @@ aes-gcm = "0.10.1"
 rand = "0.8.5"
 clap = { version = "4.1.6", features = ["derive"] }
 anyhow = "1.0.73"
+polars = { version = "0.32.1", features = ["lazy"] }

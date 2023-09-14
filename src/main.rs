@@ -1,6 +1,7 @@
 /// Main entry point
 mod app;
 mod crypto;
+mod journal;
 mod ui;
 use app::run_app;
 use clap::Parser;
